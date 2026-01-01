@@ -37,6 +37,17 @@ import { metadataCommand } from './commands/metadata-cmd.js';
 import { stackCommand } from './commands/stack.js';
 import { mirrorCommand } from './commands/mirror.js';
 import { dominantColorCommand } from './commands/dominant-color.js';
+import { flopCommand } from './commands/flop.js';
+import { autoOrientCommand } from './commands/auto-orient.js';
+import { affineCommand } from './commands/affine.js';
+import { thresholdCommand } from './commands/threshold.js';
+import { flattenCommand } from './commands/flatten.js';
+import { unflattenCommand } from './commands/unflatten.js';
+import { dilateCommand } from './commands/dilate.js';
+import { erodeCommand } from './commands/erode.js';
+import { booleanCommand } from './commands/boolean.js';
+import { linearCommand } from './commands/linear.js';
+import { recombCommand } from './commands/recomb.js';
 
 export const name = '@mediaproc/image';
 export const version = '1.0.0';
@@ -51,6 +62,9 @@ export function register(program: Command): void {
   cropCommand(imageCmd);
   rotateCommand(imageCmd);
   flipCommand(imageCmd);
+  flopCommand(imageCmd);
+  autoOrientCommand(imageCmd);
+  affineCommand(imageCmd);
   trimCommand(imageCmd);
   extendCommand(imageCmd);
   thumbnailCommand(imageCmd);
@@ -66,6 +80,10 @@ export function register(program: Command): void {
   grayscaleCommand(imageCmd);
   negateCommand(imageCmd);
   normalizeCommand(imageCmd);
+  linearCommand(imageCmd);
+  recombCommand(imageCmd);
+  flattenCommand(imageCmd);
+  unflattenCommand(imageCmd);
   
   // Effects and filters
   blurCommand(imageCmd);
@@ -73,6 +91,9 @@ export function register(program: Command): void {
   medianCommand(imageCmd);
   sepiaCommand(imageCmd);
   vignetteCommand(imageCmd);
+  thresholdCommand(imageCmd);
+  dilateCommand(imageCmd);
+  erodeCommand(imageCmd);
   
   // Advanced operations
   compositeCommand(imageCmd);
@@ -81,6 +102,7 @@ export function register(program: Command): void {
   borderCommand(imageCmd);
   claheCommand(imageCmd);
   convolveCommand(imageCmd);
+  booleanCommand(imageCmd);
   
   // Smart/AI operations
   smartCropCommand(imageCmd);

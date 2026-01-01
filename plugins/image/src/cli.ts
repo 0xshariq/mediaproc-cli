@@ -38,6 +38,17 @@ import { metadataCommand } from './commands/metadata-cmd.js';
 import { stackCommand } from './commands/stack.js';
 import { mirrorCommand } from './commands/mirror.js';
 import { dominantColorCommand } from './commands/dominant-color.js';
+import { flopCommand } from './commands/flop.js';
+import { autoOrientCommand } from './commands/auto-orient.js';
+import { affineCommand } from './commands/affine.js';
+import { thresholdCommand } from './commands/threshold.js';
+import { flattenCommand } from './commands/flatten.js';
+import { unflattenCommand } from './commands/unflatten.js';
+import { dilateCommand } from './commands/dilate.js';
+import { erodeCommand } from './commands/erode.js';
+import { booleanCommand } from './commands/boolean.js';
+import { linearCommand } from './commands/linear.js';
+import { recombCommand } from './commands/recomb.js';
 
 const program = new Command();
 
@@ -85,6 +96,17 @@ metadataCommand(program);
 stackCommand(program);
 mirrorCommand(program);
 dominantColorCommand(program);
+flopCommand(program);
+autoOrientCommand(program);
+affineCommand(program);
+thresholdCommand(program);
+flattenCommand(program);
+unflattenCommand(program);
+dilateCommand(program);
+erodeCommand(program);
+booleanCommand(program);
+linearCommand(program);
+recombCommand(program);
 
 program.parse(process.argv);
 
