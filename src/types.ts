@@ -4,6 +4,7 @@ export interface MediaProcPlugin {
   name: string;
   version: string;
   register: (program: Command) => void | Promise<void>;
+  isOfficial?: boolean; // Flag to indicate if plugin is official
 }
 
 export interface PluginMetadata {

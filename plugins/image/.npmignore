@@ -1,0 +1,80 @@
+# Development files
+*.log
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# IDE and editor files
+.vscode/
+.idea/
+*.sublime-*
+.editorconfig
+
+# Source files (publish built version only)
+src/
+tsconfig.json
+tsconfig.*.json
+
+# Test files
+test/
+tests/
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+__tests__/
+coverage/
+.nyc_output/
+
+# Documentation source
+docs/
+*.md.backup
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+CHANGELOG.md
+
+# Build artifacts
+*.tsbuildinfo
+.turbo/
+.cache/
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+circle.yml
+azure-pipelines.yml
+
+# Dependencies (will be installed by npm)
+node_modules/
+
+# Examples and samples
+examples/
+samples/
+demo/
+.demo/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Lock files (package-lock.json, pnpm-lock.yaml)
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+# Workspace files
+pnpm-workspace.yaml
