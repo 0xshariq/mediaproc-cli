@@ -310,33 +310,45 @@ done
 
 ## 📋 Commands Overview
 
-### 🔄 Transform & Resize
+All **49 commands** organized by category:
 
-- **resize** - Resize images with advanced fit modes
-- **crop** - Extract rectangular regions
-- **rotate** - Rotate by any angle
-- **flip** - Mirror horizontally/vertically
-- **trim** - Auto-remove borders
-- **extend** - Add padding/borders
-- **thumbnail** - Generate thumbnails
+### 🔄 Transform & Resize (10 commands)
 
-### 🎨 Color & Tone
+- **resize** - Resize images with advanced fit modes (cover, contain, fill, inside, outside)
+- **crop** - Extract rectangular regions with positioning options
+- **rotate** - Rotate by any angle with background control
+- **flip** - Vertical mirroring (top-to-bottom flip)
+- **flop** - Horizontal mirroring (left-to-right flip)
+- **auto-orient** - Auto-rotate based on EXIF orientation data
+- **affine** - Apply affine transformation matrix (scale, shear, reflect)
+- **trim** - Auto-remove uniform borders from edges
+- **extend** - Add padding/borders with custom colors
+- **thumbnail** - Generate thumbnails (64px to 512px)
 
-- **modulate** - Adjust brightness, saturation, hue
-- **gamma** - Apply gamma correction
-- **tint** - Apply color tint overlay
+### 🎨 Color & Tone (10 commands)
+
+- **modulate** - Adjust brightness, saturation, and hue
+- **gamma** - Apply gamma correction for midtones (0.1-3.0)
+- **tint** - Apply color tint overlay (RGB hex colors)
 - **grayscale** - Convert to black & white
-- **negate** - Create negative image
-- **normalize** - Auto-enhance contrast
+- **negate** - Create negative/inverted image
+- **normalize** - Auto-enhance contrast and brightness
+- **linear** - Apply linear formula: output = (a * input) + b
+- **recomb** - Recombine RGB channels using transformation matrix
+- **flatten** - Remove alpha transparency with background color
+- **unflatten** - Add alpha channel (RGB→RGBA)
 
-### ✨ Effects & Filters
+### ✨ Effects & Filters (9 commands)
 
-- **blur** - Gaussian blur effect
-- **sharpen** - Enhance image details
-- **median** - Noise reduction filter
+- **blur** - Gaussian blur effect (0.3-1000 sigma)
+- **sharpen** - Enhance image details and edges
+- **median** - Noise reduction filter (1-50 size)
 - **sepia** - Vintage sepia tone effect
-- **vignette** - Darken edges for focus
-- **pixelate** - Retro pixel art effect
+- **vignette** - Darken edges for artistic focus
+- **pixelate** - Retro pixel art effect with custom pixel size
+- **threshold** - Binary black/white conversion (0-255)
+- **dilate** - Morphological dilation (expand bright regions)
+- **erode** - Morphological erosion (expand dark regions)
 
 ### 🎯 Advanced Operations
 
