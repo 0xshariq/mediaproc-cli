@@ -9,6 +9,7 @@ import { createStandardHelp } from '../utils/helpFormatter.js';
 
 interface ConvolveOptionsExtended extends ConvolveOptions {
   help?: boolean;
+  custom?: string;
 }
 
 // Predefined kernels
