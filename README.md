@@ -173,7 +173,7 @@ mediaproc document compress input.pdf --quality high
 - `grayscale` - Convert to black & white
 - `negate` - Create negative/inverted images
 - `normalize` - Auto-enhance contrast and brightness
-- `linear` - Apply linear formula: output = (a * input) + b
+- `linear` - Apply linear formula: output = (a \* input) + b
 - `recomb` - Recombine RGB channels using matrix
 - `flatten` - Remove alpha transparency with background color
 - `unflatten` - Add alpha channel (RGB→RGBA)
