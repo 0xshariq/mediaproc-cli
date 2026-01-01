@@ -1,6 +1,6 @@
 # MediaProc
 
-> ✨ **v0.2.0 Released!** - Image Plugin with 40 commands + Universal convert/info/optimize commands
+> ✨ **v0.2.0 Released!** - Image Plugin with 49 commands + Universal convert/info/optimize commands
 
 Universal media processing CLI with an extensible plugin architecture. One tool to process all your media - images, videos, audio, documents, and more.
 
@@ -129,7 +129,7 @@ mediaproc document compress input.pdf --quality high
 ## 📊 Current Status
 
 **Version**: 0.2.0 (Alpha - Feature Complete Image Plugin!)  
-**Status**: ✅ Image plugin with 40 commands + Universal CLI commands  
+**Status**: ✅ Image plugin with 49 commands + Universal CLI commands  
 **Next Release**: Video & Audio plugins (Q1 2026)  
 **Expected v1.0**: Q2 2026
 
@@ -150,19 +150,22 @@ mediaproc document compress input.pdf --quality high
 
 ### Image Processing (@mediaproc/image) ★ BUILT-IN
 
-**40 Professional Commands Ready to Use:**
+**49 Professional Commands Ready to Use:**
 
-**Transform & Resize** (7 commands)
+**Transform & Resize** (10 commands)
 
 - `resize` - Resize with fit modes (cover, contain, fill, inside, outside)
 - `crop` - Extract rectangular regions with positioning
 - `rotate` - Any angle rotation with background control
-- `flip` - Horizontal/vertical/both mirroring
+- `flip` - Vertical mirroring (top-bottom)
+- `flop` - Horizontal mirroring (left-right)
+- `auto-orient` - Auto-rotate based on EXIF orientation
+- `affine` - Apply affine transformation matrix (scale, shear, reflect)
 - `trim` - Auto-remove uniform borders
 - `extend` - Add padding/borders with custom colors
 - `thumbnail` - Generate thumbnails (64px to 512px)
 
-**Color & Tone** (6 commands)
+**Color & Tone** (10 commands)
 
 - `modulate` - Adjust brightness, saturation, hue
 - `gamma` - Gamma correction for midtones (0.1-3.0)
@@ -170,8 +173,12 @@ mediaproc document compress input.pdf --quality high
 - `grayscale` - Convert to black & white
 - `negate` - Create negative/inverted images
 - `normalize` - Auto-enhance contrast and brightness
+- `linear` - Apply linear formula: output = (a * input) + b
+- `recomb` - Recombine RGB channels using matrix
+- `flatten` - Remove alpha transparency with background color
+- `unflatten` - Add alpha channel (RGB→RGBA)
 
-**Effects & Filters** (6 commands)
+**Effects & Filters** (9 commands)
 
 - `blur` - Gaussian blur (0.3-1000 sigma)
 - `sharpen` - Enhance details and edges (flat/jagged modes)
@@ -179,14 +186,18 @@ mediaproc document compress input.pdf --quality high
 - `sepia` - Vintage sepia tone effect
 - `vignette` - Darken edges for artistic focus
 - `pixelate` - Retro pixel art effect (custom pixel size)
+- `threshold` - Binary black/white conversion (0-255)
+- `dilate` - Morphological dilation (expand bright regions)
+- `erode` - Morphological erosion (expand dark regions)
 
-**Advanced Operations** (5 commands)
+**Advanced Operations** (6 commands)
 
 - `composite` - Layer images with blend modes (overlay, multiply, screen)
 - `extract` - Extract color channels (red, green, blue, alpha)
 - `border` - Add decorative frames with custom colors
 - `clahe` - Contrast-limited adaptive histogram equalization
 - `convolve` - Apply custom convolution kernels (sharpen, emboss, edge)
+- `boolean` - Perform boolean operations between images (AND, OR, XOR)
 
 **Smart/AI Operations** (6 commands)
 

@@ -10,11 +10,10 @@ import { createStandardHelp } from '../utils/helpFormatter.js';
 interface ThresholdOptions extends FilterOptions {
   threshold?: number;
   grayscale?: boolean;
-  help?: boolean;
 }
 
 export function thresholdCommand(imageCmd: Command): void {
-  imageCmd
+  const cmd = imageCmd
     .command('threshold <input>')
     .description('Apply threshold to image (convert to binary black/white)')
     .option('-t, --threshold <value>', 'Threshold value 0-255 (default: 128)', parseInt, 128)
@@ -22,62 +21,61 @@ export function thresholdCommand(imageCmd: Command): void {
     .option('-o, --output <path>', 'Output file path')
     .option('-q, --quality <quality>', 'Quality (1-100)', parseInt, 90)
     .option('--dry-run', 'Show what would be done without executing')
-    .option('-v, --verbose', 'Verbose output')
-    .option('--help', 'Display help for threshold command')
-    .action(async (input: string, options: ThresholdOptions) => {
-      if (options.help) {
-        createStandardHelp({
-          commandName: 'threshold',
-          emoji: '⚫⚪',
-          description: 'Convert image to pure black and white using threshold value. Pixels above threshold become white, below become black.',
-          usage: ['threshold <input>', 'threshold <input> -t 100'],
-          options: [
-            { flag: '-t, --threshold <value>', description: 'Threshold value 0-255 (default: 128)' },
-            { flag: '--grayscale', description: 'Convert to grayscale first (default: true)' },
-            { flag: '-o, --output <path>', description: 'Output file path (default: <input>-threshold.<ext>)' },
-            { flag: '-q, --quality <quality>', description: 'Output quality 1-100 (default: 90)' },
-            { flag: '--dry-run', description: 'Preview changes without executing' },
-            { flag: '-v, --verbose', description: 'Show detailed output' }
-          ],
-          examples: [
-            { command: 'threshold document.jpg', description: 'Binary threshold at 128' },
-            { command: 'threshold scan.jpg -t 180', description: 'Higher threshold (more white)' },
-            { command: 'threshold image.jpg -t 80', description: 'Lower threshold (more black)' },
-            { command: 'threshold photo.jpg -t 128 -o bw.png', description: 'Save as PNG' }
-          ],
-          additionalSections: [
-            {
-              title: 'Threshold Guide',
-              items: [
-                '0: All pixels become white',
-                '128: Middle threshold (default)',
-                '255: All pixels become black',
-                'Lower value = more white pixels',
-                'Higher value = more black pixels'
-              ]
-            },
-            {
-              title: 'Use Cases',
-              items: [
-                'Document scanning - clean text',
-                'OCR preprocessing',
-                'Binary image masks',
-                'Edge detection prep',
-                'QR code/barcode cleanup'
-              ]
-            }
-          ],
-          tips: [
-            'Use 128 for balanced results',
-            'Try 180-200 for dark text on light background',
-            'Try 60-80 for light text on dark background',
-            'Combine with scan-enhance for best document results'
-          ]
-        });
-        process.exit(0);
-      }
+    .option('-v, --verbose', 'Verbose output');
 
-      const spinner = ora('Processing image...').start();
+  cmd.addHelpText('after', () => {
+    return '\n' + createStandardHelp({
+      commandName: 'threshold',
+      emoji: '⚫⚪',
+      description: 'Convert image to pure black and white using threshold value. Pixels above threshold become white, below become black.',
+      usage: ['threshold <input>', 'threshold <input> -t 100'],
+      options: [
+        { flag: '-t, --threshold <value>', description: 'Threshold value 0-255 (default: 128)' },
+        { flag: '--grayscale', description: 'Convert to grayscale first (default: true)' },
+        { flag: '-o, --output <path>', description: 'Output file path (default: <input>-threshold.<ext>)' },
+        { flag: '-q, --quality <quality>', description: 'Output quality 1-100 (default: 90)' },
+        { flag: '--dry-run', description: 'Preview changes without executing' },
+        { flag: '-v, --verbose', description: 'Show detailed output' }
+      ],
+      examples: [
+        { command: 'threshold document.jpg', description: 'Binary threshold at 128' },
+        { command: 'threshold scan.jpg -t 180', description: 'Higher threshold (more white)' },
+        { command: 'threshold image.jpg -t 80', description: 'Lower threshold (more black)' },
+        { command: 'threshold photo.jpg -t 128 -o bw.png', description: 'Save as PNG' }
+      ],
+      additionalSections: [
+        {
+          title: 'Threshold Guide',
+          items: [
+            '0: All pixels become white',
+            '128: Middle threshold (default)',
+            '255: All pixels become black',
+            'Lower value = more white pixels',
+            'Higher value = more black pixels'
+          ]
+        },
+        {
+          title: 'Use Cases',
+          items: [
+            'Document scanning - clean text',
+            'OCR preprocessing',
+            'Binary image masks',
+            'Edge detection prep',
+            'QR code/barcode cleanup'
+          ]
+        }
+      ],
+      tips: [
+        'Use 128 for balanced results',
+        'Try 180-200 for dark text on light background',
+        'Try 60-80 for light text on dark background',
+        'Combine with scan-enhance for best document results'
+      ]
+    });
+  });
+
+  cmd.action(async (input: string, options: ThresholdOptions) => {
+    const spinner = ora('Processing image...').start();
 
       try {
         if (!fs.existsSync(input)) {

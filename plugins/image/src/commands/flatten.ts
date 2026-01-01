@@ -9,71 +9,69 @@ import { createStandardHelp } from '../utils/helpFormatter.js';
 
 interface FlattenOptions extends ImageOptions {
   background?: string;
-  help?: boolean;
 }
 
 export function flattenCommand(imageCmd: Command): void {
-  imageCmd
+  const cmd = imageCmd
     .command('flatten <input>')
     .description('Flatten alpha transparency onto background color')
     .option('--background <color>', 'Background color as hex (default: #ffffff)', '#ffffff')
     .option('-o, --output <path>', 'Output file path')
     .option('-q, --quality <quality>', 'Quality (1-100)', parseInt, 90)
     .option('--dry-run', 'Show what would be done without executing')
-    .option('-v, --verbose', 'Verbose output')
-    .option('--help', 'Display help for flatten command')
-    .action(async (input: string, options: FlattenOptions) => {
-      if (options.help) {
-        createStandardHelp({
-          commandName: 'flatten',
-          emoji: '🎨',
-          description: 'Remove alpha channel by merging transparency onto a solid background color. Essential for converting PNGs with transparency to JPEGs.',
-          usage: ['flatten <input>', 'flatten <input> --background #ff0000'],
-          options: [
-            { flag: '--background <color>', description: 'Background color as hex (default: #ffffff white)' },
-            { flag: '-o, --output <path>', description: 'Output file path (default: <input>-flat.<ext>)' },
-            { flag: '-q, --quality <quality>', description: 'Output quality 1-100 (default: 90)' },
-            { flag: '--dry-run', description: 'Preview changes without executing' },
-            { flag: '-v, --verbose', description: 'Show detailed output' }
-          ],
-          examples: [
-            { command: 'flatten logo.png', description: 'Flatten onto white background' },
-            { command: 'flatten image.png --background #000000', description: 'Flatten onto black' },
-            { command: 'flatten graphic.png --background #ff0000 -o red-bg.jpg', description: 'Flatten onto red and save as JPG' }
-          ],
-          additionalSections: [
-            {
-              title: 'Use Cases',
-              items: [
-                'Convert PNG with transparency to JPEG',
-                'Prepare images for platforms that don\'t support transparency',
-                'Composite transparent images onto colored backgrounds',
-                'Remove alpha channel to reduce file size'
-              ]
-            },
-            {
-              title: 'Color Formats',
-              items: [
-                '#ffffff - White (default)',
-                '#000000 - Black',
-                '#ff0000 - Red',
-                '#00ff00 - Green',
-                '#0000ff - Blue',
-                'Use 6-digit hex format'
-              ]
-            }
-          ],
-          tips: [
-            'Required when converting PNG to JPEG',
-            'White background is default',
-            'Choose background color that matches your design',
-            'Flattened images have smaller file sizes'
-          ]
-        });
-        process.exit(0);
-      }
+    .option('-v, --verbose', 'Verbose output');
 
-      const spinner = ora('Processing image...').start();
+  cmd.addHelpText('after', () => {
+    return '\n' + createStandardHelp({
+      commandName: 'flatten',
+      emoji: '🎨',
+      description: 'Remove alpha channel by merging transparency onto a solid background color. Essential for converting PNGs with transparency to JPEGs.',
+      usage: ['flatten <input>', 'flatten <input> --background #ff0000'],
+      options: [
+        { flag: '--background <color>', description: 'Background color as hex (default: #ffffff white)' },
+        { flag: '-o, --output <path>', description: 'Output file path (default: <input>-flat.<ext>)' },
+        { flag: '-q, --quality <quality>', description: 'Output quality 1-100 (default: 90)' },
+        { flag: '--dry-run', description: 'Preview changes without executing' },
+        { flag: '-v, --verbose', description: 'Show detailed output' }
+      ],
+      examples: [
+        { command: 'flatten logo.png', description: 'Flatten onto white background' },
+        { command: 'flatten image.png --background #000000', description: 'Flatten onto black' },
+        { command: 'flatten graphic.png --background #ff0000 -o red-bg.jpg', description: 'Flatten onto red and save as JPG' }
+      ],
+      additionalSections: [
+        {
+          title: 'Use Cases',
+          items: [
+            'Convert PNG with transparency to JPEG',
+            'Prepare images for platforms that don\'t support transparency',
+            'Composite transparent images onto colored backgrounds',
+            'Remove alpha channel to reduce file size'
+          ]
+        },
+        {
+          title: 'Color Formats',
+          items: [
+            '#ffffff - White (default)',
+            '#000000 - Black',
+            '#ff0000 - Red',
+            '#00ff00 - Green',
+            '#0000ff - Blue',
+            'Use 6-digit hex format'
+          ]
+        }
+      ],
+      tips: [
+        'Required when converting PNG to JPEG',
+        'White background is default',
+        'Choose background color that matches your design',
+        'Flattened images have smaller file sizes'
+      ]
+    });
+  });
+
+  cmd.action(async (input: string, options: FlattenOptions) => {
+    const spinner = ora('Processing image...').start();
 
       try {
         if (!fs.existsSync(input)) {

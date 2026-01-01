@@ -7,22 +7,19 @@ import type { ImageOptions } from '../types.js';
 import { createSharpInstance } from '../utils/sharp.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
 
-interface FlopOptions extends ImageOptions {
-  help?: boolean;
-}
+interface FlopOptions extends ImageOptions {}
 
 export function flopCommand(imageCmd: Command): void {
-  imageCmd
+  const cmd = imageCmd
     .command('flop <input>')
     .description('Flip image horizontally (mirror left-right)')
     .option('-o, --output <path>', 'Output file path')
     .option('-q, --quality <quality>', 'Quality (1-100)', parseInt, 90)
     .option('--dry-run', 'Show what would be done without executing')
-    .option('-v, --verbose', 'Verbose output')
-    .option('--help', 'Display help for flop command')
-    .action(async (input: string, options: FlopOptions) => {
-      if (options.help) {
-        createStandardHelp({
+    .option('-v, --verbose', 'Verbose output');
+  
+  cmd.addHelpText('after', () => {
+    return '\n' + createStandardHelp({
           commandName: 'flop',
           emoji: '🔄',
           description: 'Flip image horizontally (mirror left-right). Standalone horizontal flip operation from Sharp.',
@@ -42,9 +39,9 @@ export function flopCommand(imageCmd: Command): void {
             'Combine with other transforms in batch operations'
           ]
         });
-        process.exit(0);
-      }
-
+  });
+  
+  cmd.action(async (input: string, options: FlopOptions) => {
       const spinner = ora('Processing image...').start();
 
       try {

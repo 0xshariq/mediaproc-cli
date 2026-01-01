@@ -8,59 +8,57 @@ import { createSharpInstance } from '../utils/sharp.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
 
 interface AutoOrientOptions extends ImageOptions {
-  help?: boolean;
 }
 
 export function autoOrientCommand(imageCmd: Command): void {
-  imageCmd
+  const cmd = imageCmd
     .command('auto-orient <input>')
     .alias('rotate-auto')
     .description('Auto-rotate image based on EXIF orientation')
     .option('-o, --output <path>', 'Output file path')
     .option('-q, --quality <quality>', 'Quality (1-100)', parseInt, 90)
     .option('--dry-run', 'Show what would be done without executing')
-    .option('-v, --verbose', 'Verbose output')
-    .option('--help', 'Display help for auto-orient command')
-    .action(async (input: string, options: AutoOrientOptions) => {
-      if (options.help) {
-        createStandardHelp({
-          commandName: 'auto-orient',
-          emoji: '🧭',
-          description: 'Automatically rotate image based on EXIF orientation metadata. Corrects photos taken with rotated cameras.',
-          usage: ['auto-orient <input>', 'rotate-auto <input>'],
-          options: [
-            { flag: '-o, --output <path>', description: 'Output file path (default: <input>-oriented.<ext>)' },
-            { flag: '-q, --quality <quality>', description: 'Output quality 1-100 (default: 90)' },
-            { flag: '--dry-run', description: 'Preview changes without executing' },
-            { flag: '-v, --verbose', description: 'Show detailed output' }
-          ],
-          examples: [
-            { command: 'auto-orient photo.jpg', description: 'Auto-correct orientation' },
-            { command: 'rotate-auto image.jpg', description: 'Fix camera rotation (using alias)' },
-            { command: 'auto-orient *.jpg', description: 'Batch fix orientation for all JPGs' }
-          ],
-          additionalSections: [
-            {
-              title: 'EXIF Orientation',
-              items: [
-                '1: No rotation needed',
-                '3: 180° rotation',
-                '6: 90° clockwise (vertical photo)',
-                '8: 90° counter-clockwise',
-                'Also handles horizontal/vertical flips'
-              ]
-            }
-          ],
-          tips: [
-            'Essential for photos from cameras/phones',
-            'Removes EXIF orientation tag after correction',
-            'Safe to run on already-oriented images'
-          ]
-        });
-        process.exit(0);
-      }
+    .option('-v, --verbose', 'Verbose output');
 
-      const spinner = ora('Processing image...').start();
+  cmd.addHelpText('after', () => {
+    return '\n' + createStandardHelp({
+      commandName: 'auto-orient',
+      emoji: '🧭',
+      description: 'Automatically rotate image based on EXIF orientation metadata. Corrects photos taken with rotated cameras.',
+      usage: ['auto-orient <input>', 'rotate-auto <input>'],
+      options: [
+        { flag: '-o, --output <path>', description: 'Output file path (default: <input>-oriented.<ext>)' },
+        { flag: '-q, --quality <quality>', description: 'Output quality 1-100 (default: 90)' },
+        { flag: '--dry-run', description: 'Preview changes without executing' },
+        { flag: '-v, --verbose', description: 'Show detailed output' }
+      ],
+      examples: [
+        { command: 'auto-orient photo.jpg', description: 'Auto-correct orientation' },
+        { command: 'rotate-auto image.jpg', description: 'Fix camera rotation (using alias)' },
+        { command: 'auto-orient *.jpg', description: 'Batch fix orientation for all JPGs' }
+      ],
+      additionalSections: [
+        {
+          title: 'EXIF Orientation',
+          items: [
+            '1: No rotation needed',
+            '3: 180° rotation',
+            '6: 90° clockwise (vertical photo)',
+            '8: 90° counter-clockwise',
+            'Also handles horizontal/vertical flips'
+          ]
+        }
+      ],
+      tips: [
+        'Essential for photos from cameras/phones',
+        'Removes EXIF orientation tag after correction',
+        'Safe to run on already-oriented images'
+      ]
+    });
+  });
+
+  cmd.action(async (input: string, options: AutoOrientOptions) => {
+    const spinner = ora('Processing image...').start();
 
       try {
         if (!fs.existsSync(input)) {

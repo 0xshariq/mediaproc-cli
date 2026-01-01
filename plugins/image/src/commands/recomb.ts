@@ -12,6 +12,8 @@ interface RecombOptions extends ImageOptions {
     help?: boolean;
 }
 
+const spinner = ora();
+
 export function recombCommand(imageCmd: Command): void {
     imageCmd
         .command('recomb <input>')
@@ -79,82 +81,79 @@ export function recombCommand(imageCmd: Command): void {
                         'Values typically 0 to 1',
                         'Can use negative values for inversions',
                         'Useful for color correction and artistic effects'
-                    ]
-                });
-                process.exit(0);
-            }
-
-            const spinner = ora('Processing image...').start();
-
-            try {
-                if (!fs.existsSync(input)) {
-                    spinner.fail(chalk.red(`Input file not found: ${input}`));
-                    process.exit(1);
-                }
-
-                // Parse matrix
-                const matrixStr = options.matrix || '[[1,0,0],[0,1,0],[0,0,1]]';
-                let matrix: number[][];
-                try {
-                    matrix = JSON.parse(matrixStr);
-                    if (!Array.isArray(matrix) || matrix.length !== 3) {
-                        throw new Error('Matrix must be 3x3');
-                    }
-                    for (const row of matrix) {
-                        if (!Array.isArray(row) || row.length !== 3) {
-                            throw new Error('Each row must have 3 values');
-                        }
-                    }
-                } catch (e) {
-                    spinner.fail(chalk.red('Invalid matrix format. Use 3x3 JSON array like [[1,0,0],[0,1,0],[0,0,1]]'));
-                    process.exit(1);
-                }
-
-                const inputPath = path.parse(input);
-                const outputPath = options.output || path.join(process.cwd(), `${inputPath.name}-recomb${inputPath.ext}`);
-
-                if (options.verbose) {
-                    spinner.info(chalk.blue('Configuration:'));
-                    console.log(chalk.dim(`  Input: ${input}`));
-                    console.log(chalk.dim(`  Output: ${outputPath}`));
-                    console.log(chalk.dim(`  Matrix: ${JSON.stringify(matrix)}`));
-                    spinner.start('Processing...');
-                }
-
-                if (options.dryRun) {
-                    spinner.info(chalk.yellow('Dry run mode - no changes will be made'));
-                    console.log(chalk.green('✓ Would recombine channels:'));
-                    console.log(chalk.dim(`  Input: ${input}`));
-                    console.log(chalk.dim(`  Matrix: ${JSON.stringify(matrix)}`));
-                    return;
-                }
-
-                const metadata = await createSharpInstance(input).metadata();
-                const pipeline = createSharpInstance(input).recomb(matrix);
-
-                const outputExt = path.extname(outputPath).toLowerCase();
-                if (outputExt === '.jpg' || outputExt === '.jpeg') {
-                    pipeline.jpeg({ quality: options.quality || 90 });
-                } else if (outputExt === '.png') {
-                    pipeline.png({ quality: options.quality || 90 });
-                } else if (outputExt === '.webp') {
-                    pipeline.webp({ quality: options.quality || 90 });
-                }
-
-                await pipeline.toFile(outputPath);
-
-                const outputStats = fs.statSync(outputPath);
-
-                spinner.succeed(chalk.green('✓ Channels recombined successfully!'));
-                console.log(chalk.dim(`  Input: ${input}`));
-                console.log(chalk.dim(`  Output: ${outputPath}`));
-                console.log(chalk.dim(`  Size: ${metadata.width}x${metadata.height}`));
-                console.log(chalk.dim(`  File size: ${(outputStats.size / 1024).toFixed(2)} KB`));
-            } catch (error) {
-                spinner.fail(chalk.red('Failed to recombine channels'));
-                const errorMessage = error instanceof Error ? error.message : String(error);
-                console.error(chalk.red(errorMessage));
-                process.exit(1);
-            }
+            ]
         });
+        return;
+    }
+        if (!fs.existsSync(input)) {
+            spinner.fail(chalk.red(`Input file not found: ${input}`));
+            process.exit(1);
+        }
+
+        // Parse matrix
+        const matrixStr = options.matrix || '[[1,0,0],[0,1,0],[0,0,1]]';
+        let matrix: number[][];
+        try {
+            matrix = JSON.parse(matrixStr);
+            if (!Array.isArray(matrix) || matrix.length !== 3) {
+                throw new Error('Matrix must be 3x3');
+            }
+            for (const row of matrix) {
+                if (!Array.isArray(row) || row.length !== 3) {
+                    throw new Error('Each row must have 3 values');
+                }
+            }
+        } catch (e) {
+            spinner.fail(chalk.red('Invalid matrix format. Use 3x3 JSON array like [[1,0,0],[0,1,0],[0,0,1]]'));
+            process.exit(1);
+        }
+
+        const inputPath = path.parse(input);
+        const outputPath = options.output || path.join(process.cwd(), `${inputPath.name}-recomb${inputPath.ext}`);
+
+        if (options.verbose) {
+            spinner.info(chalk.blue('Configuration:'));
+            console.log(chalk.dim(`  Input: ${input}`));
+            console.log(chalk.dim(`  Output: ${outputPath}`));
+            console.log(chalk.dim(`  Matrix: ${JSON.stringify(matrix)}`));
+            spinner.start('Processing...');
+        }
+
+        if (options.dryRun) {
+            spinner.info(chalk.yellow('Dry run mode - no changes will be made'));
+            console.log(chalk.green('✓ Would recombine channels:'));
+            console.log(chalk.dim(`  Input: ${input}`));
+            console.log(chalk.dim(`  Matrix: ${JSON.stringify(matrix)}`));
+            return;
+        }
+
+        try {
+            const metadata = await createSharpInstance(input).metadata();
+        const pipeline = createSharpInstance(input).recomb(matrix as [[number, number, number], [number, number, number], [number, number, number]]);
+
+        const outputExt = path.extname(outputPath).toLowerCase();
+        if (outputExt === '.jpg' || outputExt === '.jpeg') {
+            pipeline.jpeg({ quality: options.quality || 90 });
+        } else if (outputExt === '.png') {
+            pipeline.png({ quality: options.quality || 90 });
+        } else if (outputExt === '.webp') {
+            pipeline.webp({ quality: options.quality || 90 });
+        }
+
+        await pipeline.toFile(outputPath);
+
+        const outputStats = fs.statSync(outputPath);
+
+        spinner.succeed(chalk.green('✓ Channels recombined successfully!'));
+        console.log(chalk.dim(`  Input: ${input}`));
+        console.log(chalk.dim(`  Output: ${outputPath}`));
+        console.log(chalk.dim(`  Size: ${metadata.width}x${metadata.height}`));
+    console.log(chalk.dim(`  File size: ${(outputStats.size / 1024).toFixed(2)} KB`));
+    } catch (error) {
+        spinner.fail(chalk.red('Failed to recombine channels'));
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error(chalk.red(errorMessage));
+        process.exit(1);
+    }
+});
 }

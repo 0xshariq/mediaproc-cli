@@ -7,21 +7,19 @@ import type { ImageOptions } from '../types.js';
 import { createSharpInstance } from '../utils/sharp.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
 
-interface ErodeOptions extends ImageOptions {
-  help?: boolean;
-}
+interface ErodeOptions extends ImageOptions {}
 
 export function erodeCommand(imageCmd: Command): void {
-  imageCmd
+  const cmd = imageCmd
     .command('erode <input>')
     .description('Erode image (expand dark regions)')
     .option('-o, --output <path>', 'Output file path')
     .option('-q, --quality <quality>', 'Quality (1-100)', parseInt, 90)
     .option('--dry-run', 'Show what would be done without executing')
-    .option('-v, --verbose', 'Verbose output')
-    .option('--help', 'Display help for erode command')
-    .action(async (input: string, options: ErodeOptions) => {
-      if (options.help) {
+    .option('-v, --verbose', 'Verbose output');
+  
+  cmd.addHelpText('after', () => {
+    return '\n' +
         createStandardHelp({
           commandName: 'erode',
           emoji: '⚫',
@@ -86,9 +84,9 @@ export function erodeCommand(imageCmd: Command): void {
             'Useful for separating connected objects'
           ]
         });
-        process.exit(0);
-      }
-
+  });
+  
+  cmd.action(async (input: string, options: ErodeOptions) => {
       const spinner = ora('Processing image...').start();
 
       try {
@@ -117,7 +115,15 @@ export function erodeCommand(imageCmd: Command): void {
         }
 
         const metadata = await createSharpInstance(input).metadata();
-        const pipeline = createSharpInstance(input).erode();
+        
+        // Erosion kernel (3x3 matrix with all values set to -1 for erosion effect)
+        const erodeKernel = {
+          width: 3,
+          height: 3,
+          kernel: [-1, -1, -1, -1, 8, -1, -1, -1, -1]
+        };
+        
+        const pipeline = createSharpInstance(input).convolve(erodeKernel);
 
         const outputExt = path.extname(outputPath).toLowerCase();
         if (outputExt === '.jpg' || outputExt === '.jpeg') {

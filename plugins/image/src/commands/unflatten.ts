@@ -8,57 +8,55 @@ import { createSharpInstance } from '../utils/sharp.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
 
 interface UnflattenOptions extends ImageOptions {
-  help?: boolean;
 }
 
 export function unflattenCommand(imageCmd: Command): void {
-  imageCmd
+  const cmd = imageCmd
     .command('unflatten <input>')
     .description('Add alpha channel to RGB image (inverse of flatten)')
     .option('-o, --output <path>', 'Output file path')
     .option('-q, --quality <quality>', 'Quality (1-100)', parseInt, 90)
     .option('--dry-run', 'Show what would be done without executing')
-    .option('-v, --verbose', 'Verbose output')
-    .option('--help', 'Display help for unflatten command')
-    .action(async (input: string, options: UnflattenOptions) => {
-      if (options.help) {
-        createStandardHelp({
-          commandName: 'unflatten',
-          emoji: '🔓',
-          description: 'Add alpha channel to image (convert RGB to RGBA). Opposite of flatten command.',
-          usage: ['unflatten <input>', 'unflatten <input> -o transparent.png'],
-          options: [
-            { flag: '-o, --output <path>', description: 'Output file path (default: <input>-unflat.png)' },
-            { flag: '-q, --quality <quality>', description: 'Output quality 1-100 (default: 90)' },
-            { flag: '--dry-run', description: 'Preview changes without executing' },
-            { flag: '-v, --verbose', description: 'Show detailed output' }
-          ],
-          examples: [
-            { command: 'unflatten image.jpg', description: 'Add alpha channel' },
-            { command: 'unflatten photo.jpg -o with-alpha.png', description: 'Convert JPG to PNG with alpha' }
-          ],
-          additionalSections: [
-            {
-              title: 'Use Cases',
-              items: [
-                'Prepare image for compositing operations',
-                'Convert JPEG to PNG with transparency support',
-                'Add alpha channel before applying transparency',
-                'Prepare for further alpha manipulations'
-              ]
-            }
-          ],
-          tips: [
-            'All pixels will be fully opaque after unflatten',
-            'Use PNG format to preserve alpha channel',
-            'Required before some compositing operations',
-            'Increases file size (adds alpha data)'
-          ]
-        });
-        process.exit(0);
-      }
+    .option('-v, --verbose', 'Verbose output');
 
-      const spinner = ora('Processing image...').start();
+  cmd.addHelpText('after', () => {
+    return '\n' + createStandardHelp({
+      commandName: 'unflatten',
+      emoji: '🔓',
+      description: 'Add alpha channel to image (convert RGB to RGBA). Opposite of flatten command.',
+      usage: ['unflatten <input>', 'unflatten <input> -o transparent.png'],
+      options: [
+        { flag: '-o, --output <path>', description: 'Output file path (default: <input>-unflat.png)' },
+        { flag: '-q, --quality <quality>', description: 'Output quality 1-100 (default: 90)' },
+        { flag: '--dry-run', description: 'Preview changes without executing' },
+        { flag: '-v, --verbose', description: 'Show detailed output' }
+      ],
+      examples: [
+        { command: 'unflatten image.jpg', description: 'Add alpha channel' },
+        { command: 'unflatten photo.jpg -o with-alpha.png', description: 'Convert JPG to PNG with alpha' }
+      ],
+      additionalSections: [
+        {
+          title: 'Use Cases',
+          items: [
+            'Prepare image for compositing operations',
+            'Convert JPEG to PNG with transparency support',
+            'Add alpha channel before applying transparency',
+            'Prepare for further alpha manipulations'
+          ]
+        }
+      ],
+      tips: [
+        'All pixels will be fully opaque after unflatten',
+        'Use PNG format to preserve alpha channel',
+        'Required before some compositing operations',
+        'Increases file size (adds alpha data)'
+      ]
+    });
+  });
+
+  cmd.action(async (input: string, options: UnflattenOptions) => {
+    const spinner = ora('Processing image...').start();
 
       try {
         if (!fs.existsSync(input)) {

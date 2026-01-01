@@ -10,11 +10,10 @@ import { createStandardHelp } from '../utils/helpFormatter.js';
 interface BooleanOptions extends ImageOptions {
   operation: string;
   operand?: string;
-  help?: boolean;
 }
 
 export function booleanCommand(imageCmd: Command): void {
-  imageCmd
+  const cmd = imageCmd
     .command('boolean <input>')
     .description('Perform boolean operations between images')
     .requiredOption('--operation <op>', 'Boolean operation: and, or, eor (XOR)')
@@ -22,10 +21,10 @@ export function booleanCommand(imageCmd: Command): void {
     .option('-o, --output <path>', 'Output file path')
     .option('-q, --quality <quality>', 'Quality (1-100)', parseInt, 90)
     .option('--dry-run', 'Show what would be done without executing')
-    .option('-v, --verbose', 'Verbose output')
-    .option('--help', 'Display help for boolean command')
-    .action(async (input: string, options: BooleanOptions) => {
-      if (options.help) {
+    .option('-v, --verbose', 'Verbose output');
+  
+  cmd.addHelpText('after', () => {
+    return '\n' +
         createStandardHelp({
           commandName: 'boolean',
           emoji: '⚡',
@@ -93,9 +92,9 @@ export function booleanCommand(imageCmd: Command): void {
             'Results depend on pixel bit patterns'
           ]
         });
-        process.exit(0);
-      }
-
+  });
+  
+  cmd.action(async (input: string, options: BooleanOptions) => {
       const spinner = ora('Processing image...').start();
 
       try {

@@ -10,11 +10,10 @@ import { createStandardHelp } from '../utils/helpFormatter.js';
 interface LinearOptions extends ImageOptions {
   a?: number;
   b?: number;
-  help?: boolean;
 }
 
 export function linearCommand(imageCmd: Command): void {
-  imageCmd
+  const cmd = imageCmd
     .command('linear <input>')
     .description('Apply linear formula: output = (a * input) + b')
     .option('-a, --a <value>', 'Multiplier (default: 1)', parseFloat, 1)
@@ -22,10 +21,10 @@ export function linearCommand(imageCmd: Command): void {
     .option('-o, --output <path>', 'Output file path')
     .option('-q, --quality <quality>', 'Quality (1-100)', parseInt, 90)
     .option('--dry-run', 'Show what would be done without executing')
-    .option('-v, --verbose', 'Verbose output')
-    .option('--help', 'Display help for linear command')
-    .action(async (input: string, options: LinearOptions) => {
-      if (options.help) {
+    .option('-v, --verbose', 'Verbose output');
+  
+  cmd.addHelpText('after', () => {
+    return '\n' +
         createStandardHelp({
           commandName: 'linear',
           emoji: '📐',
@@ -85,9 +84,9 @@ export function linearCommand(imageCmd: Command): void {
             'Use for reproducible adjustments'
           ]
         });
-        process.exit(0);
-      }
-
+  });
+  
+  cmd.action(async (input: string, options: LinearOptions) => {
       const spinner = ora('Processing image...').start();
 
       try {
