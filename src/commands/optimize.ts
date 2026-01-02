@@ -1,81 +1,11 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import ora from 'ora';
 import { existsSync } from 'fs';
 import { extname } from 'path';
-import { execa } from 'execa';
 import type { PluginManager } from '../plugin-manager.js';
-import { resolvePluginPackage } from '../plugin-registry.js';
 
 /**
- * Detect which plugin can handle optimization for a file type
- */
-function detectOptimizePlugin(ext: string): { plugin: string; type: string } | null {
-  const imageExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff', 'avif', 'heif'];
-  const videoExts = ['mp4', 'webm', 'mkv', 'avi', 'mov', 'flv', 'wmv', 'm4v'];
-  const audioExts = ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'wma', 'opus'];
-  const documentExts = ['pdf', 'docx', 'pptx'];
-  const modelExts = ['gltf', 'glb', 'obj'];
-
-  if (imageExts.includes(ext)) return { plugin: 'image', type: 'Image' };
-  if (videoExts.includes(ext)) return { plugin: 'video', type: 'Video' };
-  if (audioExts.includes(ext)) return { plugin: 'audio', type: 'Audio' };
-  if (documentExts.includes(ext)) return { plugin: 'document', type: 'Document' };
-  if (modelExts.includes(ext)) return { plugin: '3d', type: '3D Model' };
-  
-  return null;
-}
-
-/**
- * Ensure plugin is installed and loaded
- */
-async function ensurePlugin(pluginName: string, pluginManager: PluginManager, program: Command): Promise<boolean> {
-  const pluginPackage = resolvePluginPackage(pluginName);
-  
-  if (pluginManager.isPluginLoaded(pluginPackage)) {
-    return true;
-  }
-  
-  const spinner = ora(`Checking ${chalk.cyan(pluginName)} plugin...`).start();
-  
-  if (pluginManager.isPluginInstalled(pluginPackage)) {
-    spinner.text = `Loading ${chalk.cyan(pluginPackage)}...`;
-    try {
-      await pluginManager.loadPlugin(pluginPackage, program);
-      spinner.succeed(chalk.green(`✓ Loaded ${pluginName} plugin`));
-      return true;
-    } catch (error) {
-      spinner.fail(chalk.red(`Failed to load ${pluginName}`));
-      return false;
-    }
-  }
-  
-  spinner.text = `Installing ${chalk.cyan(pluginPackage)}...`;
-  
-  try {
-    let packageManager = 'pnpm';
-    try {
-      await execa('pnpm', ['--version'], { stdio: 'pipe' });
-    } catch {
-      packageManager = 'npm';
-    }
-    
-    const args = [packageManager === 'pnpm' ? 'add' : 'install', pluginPackage];
-    await execa(packageManager, args, { stdio: 'pipe', cwd: process.cwd() });
-    
-    spinner.text = `Loading ${chalk.cyan(pluginPackage)}...`;
-    await pluginManager.loadPlugin(pluginPackage, program);
-    
-    spinner.succeed(chalk.green(`✓ Installed and loaded ${pluginName} plugin`));
-    return true;
-  } catch (error) {
-    spinner.fail(chalk.red(`Failed to install ${pluginName}`));
-    return false;
-  }
-}
-
-/**
- * Universal optimize command - detects file type and optimizes
+ * Universal optimize command - shows optimization suggestions based on file type
  */
 export function optimizeCommand(program: Command, pluginManager?: PluginManager): void {
   program
@@ -158,12 +88,12 @@ export function optimizeCommand(program: Command, pluginManager?: PluginManager)
             `mediaproc audio convert ${file} ${options.output || file.replace(`.${ext}`, '.optimized.flac')}`,
           ];
         } else if (options.aggressive) {
-          optimizationStrategy = 'Aggressive (Opus 96k)';
+          optimizationStrategy = 'Aggressive (Opus 96kbps)';
           commands = [
             `mediaproc audio convert ${file} ${options.output || file.replace(`.${ext}`, '.optimized.opus')} --bitrate 96k`,
           ];
         } else {
-          optimizationStrategy = 'Balanced (Opus 128k)';
+          optimizationStrategy = 'Balanced (Opus 128kbps)';
           commands = [
             `mediaproc audio convert ${file} ${options.output || file.replace(`.${ext}`, '.optimized.opus')} --bitrate 128k`,
           ];
@@ -171,29 +101,23 @@ export function optimizeCommand(program: Command, pluginManager?: PluginManager)
       } else if (documentExts.includes(ext)) {
         pluginName = 'document';
         mediaType = 'Document';
-        optimizationStrategy = 'PDF compression with Ghostscript';
+        optimizationStrategy = 'Compression and optimization';
         commands = [
-          `mediaproc document compress ${file} ${options.output || file.replace('.pdf', '.optimized.pdf')}`,
+          `mediaproc document optimize ${file} ${options.output || file.replace(`.${ext}`, `.optimized.${ext}`)}`,
         ];
       } else if (modelExts.includes(ext)) {
         pluginName = '3d';
         mediaType = '3D Model';
         
-        if (options.lossless) {
-          optimizationStrategy = 'Lossless (remove unused data)';
+        if (options.aggressive) {
+          optimizationStrategy = 'Aggressive (Draco compression, lower precision)';
           commands = [
-            `mediaproc 3d optimize ${file} ${options.output || file.replace(`.${ext}`, '.optimized.glb')} --lossless`,
-          ];
-        } else if (options.aggressive) {
-          optimizationStrategy = 'Aggressive (Draco + texture compression)';
-          commands = [
-            `mediaproc 3d optimize ${file} ${options.output || file.replace(`.${ext}`, '.optimized.glb')} --aggressive`,
-            `mediaproc 3d compress-textures ${file} ${options.output || file.replace(`.${ext}`, '.optimized.glb')} --format ktx2`,
+            `mediaproc 3d optimize ${file} ${options.output || file.replace(`.${ext}`, '.optimized.glb')} --draco --quantize`,
           ];
         } else {
           optimizationStrategy = 'Balanced (Draco compression)';
           commands = [
-            `mediaproc 3d optimize ${file} ${options.output || file.replace(`.${ext}`, '.optimized.glb')}`,
+            `mediaproc 3d optimize ${file} ${options.output || file.replace(`.${ext}`, '.optimized.glb')} --draco`,
           ];
         }
       } else {
@@ -223,8 +147,21 @@ export function optimizeCommand(program: Command, pluginManager?: PluginManager)
         if (i < commands.length - 1) console.log('');
       });
       console.log('');
-      console.log(chalk.dim(`💡 Install plugin: mediaproc add ${pluginName}`));
-      console.log(chalk.dim(`   Then run one of the commands above`));
+
+      // Check plugin status
+      const pluginPackage = `@mediaproc/${pluginName}`;
+      const isLoaded = pluginManager?.isPluginLoaded(pluginPackage);
+      const isInstalled = pluginManager?.isPluginInstalled(pluginPackage);
+
+      if (isLoaded) {
+        console.log(chalk.green(`✓ ${pluginName} plugin is loaded - commands are ready`));
+      } else if (isInstalled) {
+        console.log(chalk.yellow(`⚠️  ${pluginName} plugin is installed but not loaded`));
+        console.log(chalk.dim(`   Load it: ${chalk.cyan(`mediaproc add ${pluginName}`)}`));
+      } else {
+        console.log(chalk.red(`✗ ${pluginName} plugin not installed`));
+        console.log(chalk.dim(`   Install: ${chalk.cyan(`mediaproc add ${pluginName}`)}`));
+      }
       console.log('');
       
       // Show size estimates

@@ -1,81 +1,11 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import ora from 'ora';
 import { statSync, existsSync } from 'fs';
 import { resolve, extname, basename } from 'path';
-import { execa } from 'execa';
 import type { PluginManager } from '../plugin-manager.js';
-import { resolvePluginPackage } from '../plugin-registry.js';
 
 /**
- * Detect which plugin can provide detailed info for a file type
- */
-function detectInfoPlugin(ext: string): { plugin: string; type: string; icon: string } | null {
-  const imageExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff', 'avif', 'heif', 'svg'];
-  const videoExts = ['mp4', 'webm', 'mkv', 'avi', 'mov', 'flv', 'wmv', 'm4v', 'mpg', 'mpeg'];
-  const audioExts = ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'wma', 'opus'];
-  const documentExts = ['pdf', 'docx', 'doc', 'pptx', 'ppt', 'xlsx', 'xls', 'epub'];
-  const modelExts = ['gltf', 'glb', 'obj', 'fbx', 'usdz'];
-
-  if (imageExts.includes(ext)) return { plugin: 'image', type: 'Image', icon: '🖼️' };
-  if (videoExts.includes(ext)) return { plugin: 'video', type: 'Video', icon: '🎬' };
-  if (audioExts.includes(ext)) return { plugin: 'audio', type: 'Audio', icon: '🎵' };
-  if (documentExts.includes(ext)) return { plugin: 'document', type: 'Document', icon: '📄' };
-  if (modelExts.includes(ext)) return { plugin: '3d', type: '3D Model', icon: '🎨' };
-  
-  return null;
-}
-
-/**
- * Ensure plugin is installed and loaded
- */
-async function ensurePlugin(pluginName: string, pluginManager: PluginManager, program: Command): Promise<boolean> {
-  const pluginPackage = resolvePluginPackage(pluginName);
-  
-  if (pluginManager.isPluginLoaded(pluginPackage)) {
-    return true;
-  }
-  
-  const spinner = ora(`Checking ${chalk.cyan(pluginName)} plugin...`).start();
-  
-  if (pluginManager.isPluginInstalled(pluginPackage)) {
-    spinner.text = `Loading ${chalk.cyan(pluginPackage)}...`;
-    try {
-      await pluginManager.loadPlugin(pluginPackage, program);
-      spinner.succeed(chalk.green(`✓ Loaded ${pluginName} plugin`));
-      return true;
-    } catch (error) {
-      spinner.fail(chalk.red(`Failed to load ${pluginName}`));
-      return false;
-    }
-  }
-  
-  spinner.text = `Installing ${chalk.cyan(pluginPackage)}...`;
-  
-  try {
-    let packageManager = 'pnpm';
-    try {
-      await execa('pnpm', ['--version'], { stdio: 'pipe' });
-    } catch {
-      packageManager = 'npm';
-    }
-    
-    const args = [packageManager === 'pnpm' ? 'add' : 'install', pluginPackage];
-    await execa(packageManager, args, { stdio: 'pipe', cwd: process.cwd() });
-    
-    spinner.text = `Loading ${chalk.cyan(pluginPackage)}...`;
-    await pluginManager.loadPlugin(pluginPackage, program);
-    
-    spinner.succeed(chalk.green(`✓ Installed and loaded ${pluginName} plugin`));
-    return true;
-  } catch (error) {
-    spinner.fail(chalk.red(`Failed to install ${pluginName}`));
-    return false;
-  }
-}
-
-/**
- * Universal info command - shows file information and detailed plugin info if available
+ * Universal info command - shows basic file information and suggests plugin for detailed info
  */
 export function infoCommand(program: Command, pluginManager?: PluginManager): void {
   program
@@ -165,7 +95,21 @@ export function infoCommand(program: Command, pluginManager?: PluginManager): vo
           console.log(chalk.yellow('💡 Get detailed info with:'));
           console.log(chalk.cyan(`   mediaproc ${suggestedPlugin} info ${file}`));
           console.log('');
-          console.log(chalk.dim(`   Install plugin: mediaproc add ${suggestedPlugin}`));
+
+          // Check plugin status
+          const pluginPackage = `@mediaproc/${suggestedPlugin}`;
+          const isLoaded = pluginManager?.isPluginLoaded(pluginPackage);
+          const isInstalled = pluginManager?.isPluginInstalled(pluginPackage);
+
+          if (isLoaded) {
+            console.log(chalk.green(`   ✓ ${suggestedPlugin} plugin is loaded - command is ready`));
+          } else if (isInstalled) {
+            console.log(chalk.yellow(`   ⚠️  ${suggestedPlugin} plugin is installed but not loaded`));
+            console.log(chalk.dim(`   Load it: ${chalk.cyan(`mediaproc add ${suggestedPlugin}`)}`));
+          } else {
+            console.log(chalk.red(`   ✗ ${suggestedPlugin} plugin not installed`));
+            console.log(chalk.dim(`   Install: ${chalk.cyan(`mediaproc add ${suggestedPlugin}`)}`));
+          }
         } else {
           console.log(chalk.yellow('⚠️  Unknown media type - no plugin available'));
         }
