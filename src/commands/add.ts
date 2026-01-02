@@ -120,20 +120,38 @@ export function addCommand(program: Command, pluginManager: PluginManager): void
         const scope = installGlobally ? 'globally' : 'locally';
         console.log(chalk.dim(`\nInstalled ${scope} using ${packageManager}`));
         
-        // Try to load the plugin immediately if installed locally
+        // Configure and load the plugin
         if (!installGlobally) {
           try {
-            const loadSpinner = ora('Loading plugin...').start();
+            const loadSpinner = ora('Configuring plugin...').start();
+            
+            // Try to load the plugin to verify it works
             const loaded = await pluginManager.loadPlugin(pluginName, program);
+            
             if (loaded) {
-              loadSpinner.succeed(chalk.green('Plugin loaded and ready to use'));
+              loadSpinner.succeed(chalk.green('✓ Plugin configured and ready to use'));
+              
+              // Verify plugin commands are available
+              const pluginInstance = pluginManager.getPlugin(pluginName);
+              if (pluginInstance) {
+                const commandCount = program.commands.filter(cmd => 
+                  cmd.name().startsWith(plugin.replace('@mediaproc/', ''))
+                ).length;
+                if (commandCount > 0) {
+                  console.log(chalk.green(`✓ Registered ${commandCount} commands`));
+                }
+              }
             } else {
-              loadSpinner.info(chalk.yellow('Plugin installed but requires restart to use'));
+              loadSpinner.warn(chalk.yellow('Plugin installed but requires CLI restart to use'));
+              console.log(chalk.dim('Run your command again to use the plugin'));
             }
           } catch (loadError) {
-            // Not critical if loading fails - user can restart CLI
-            console.log(chalk.yellow('Note: Restart the CLI to use the new plugin'));
+            const errorMsg = loadError instanceof Error ? loadError.message : String(loadError);
+            console.log(chalk.yellow(`⚠ Plugin installed but configuration failed: ${errorMsg}`));
+            console.log(chalk.dim('Restart the CLI to use the plugin'));
           }
+        } else {
+          console.log(chalk.dim('Global plugins require CLI restart to take effect'));
         }
         
         console.log(chalk.dim(`You can now use: ${chalk.white(`mediaproc ${plugin.replace('@mediaproc/', '')} <command>`)}`));

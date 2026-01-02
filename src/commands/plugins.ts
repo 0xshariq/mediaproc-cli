@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { PLUGIN_REGISTRY, getPluginsByCategory } from '../plugin-registry.js';
+import { getPluginsByCategory } from '../plugin-registry.js';
 import type { PluginManager } from '../plugin-manager.js';
 
 export function pluginsCommand(program: Command, pluginManager: PluginManager): void {

@@ -163,17 +163,28 @@ isOfficialPlugin(pluginName: string): boolean {
   return this.officialPlugins.includes(pluginName);
 }
 
-/**
- * Check if a plugin is loaded
- */
-isPluginLoaded(pluginName: string): boolean {
-  return this.plugins.has(pluginName);
-}
+  /**
+   * Check if a plugin is loaded
+   */
+  isPluginLoaded(pluginName: string): boolean {
+    return this.plugins.has(pluginName);
+  }
 
-/**
- * Get plugin instance
- */
-getPlugin(pluginName: string): MediaProcPlugin | undefined {
-  return this.plugins.get(pluginName);
-}
+  /**
+   * Get plugin instance
+   */
+  getPlugin(pluginName: string): MediaProcPlugin | undefined {
+    return this.plugins.get(pluginName);
+  }
+
+  /**
+   * Unload a plugin (remove from registry)
+   */
+  unloadPlugin(pluginName: string): boolean {
+    if (this.plugins.has(pluginName)) {
+      this.plugins.delete(pluginName);
+      return true;
+    }
+    return false;
+  }
 }

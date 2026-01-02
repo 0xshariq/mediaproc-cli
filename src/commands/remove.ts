@@ -30,7 +30,9 @@ export function removeCommand(program: Command, pluginManager: PluginManager): v
         // Check if plugin is currently loaded
         const wasLoaded = pluginManager.isPluginLoaded(pluginName);
         if (wasLoaded) {
-          spinner.info(chalk.dim(`Plugin ${pluginName} is currently loaded`));
+          spinner.info(chalk.dim(`Unloading plugin ${pluginName}...`));
+          pluginManager.unloadPlugin(pluginName);
+          spinner.start(`Removing ${chalk.cyan(pluginName)}...`);
         }
 
         // Determine package manager (prefer pnpm, fallback to npm)
@@ -57,6 +59,13 @@ export function removeCommand(program: Command, pluginManager: PluginManager): v
         });
 
         spinner.succeed(chalk.green(`✓ Successfully removed ${pluginName}`));
+        
+        if (wasLoaded) {
+          console.log(chalk.green('✓ Plugin unloaded and cleaned up'));
+        }
+        
+        console.log(chalk.dim('\nPlugin has been completely removed'));
+        console.log(chalk.dim('View remaining plugins: ') + chalk.white('mediaproc list'));
 
       } catch (error) {
         spinner.fail(chalk.red(`Failed to remove ${plugin}`));
