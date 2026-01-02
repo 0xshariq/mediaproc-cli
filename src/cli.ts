@@ -9,6 +9,7 @@ import { PluginManager } from './plugin-manager.js';
 import { addCommand } from './commands/add.js';
 import { removeCommand } from './commands/remove.js';
 import { listCommand } from './commands/list.js';
+import { pluginsCommand } from './commands/plugins.js';
 import { helpCommand } from './commands/help.js';
 import { initCommand } from './commands/init.js';
 import { configCommand } from './commands/config.js';
@@ -36,6 +37,7 @@ export async function cli(): Promise<void> {
   addCommand(program, pluginManager);
   removeCommand(program, pluginManager);
   listCommand(program, pluginManager);
+  pluginsCommand(program, pluginManager);
   helpCommand(program);
   
   // Project management commands

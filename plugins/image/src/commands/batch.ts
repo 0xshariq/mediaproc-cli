@@ -23,7 +23,7 @@ export function batchCommand(imageCmd: Command): void {
   imageCmd
     .command('batch <directory>')
     .description('Process multiple images in batch with any operation')
-    .requiredOption('-op, --operation <operation>', 'Operation: resize, convert, optimize, grayscale, etc.')
+    .requiredOption('--operation <operation>', 'Operation: resize, convert, optimize, grayscale, etc.')
     .option('-o, --output <directory>', 'Output directory (default: ./output)')
     .option('-p, --pattern <glob>', 'File pattern (default: *.{jpg,jpeg,png,webp,gif})')
     .option('-r, --recursive', 'Process subdirectories recursively')
@@ -40,9 +40,9 @@ export function batchCommand(imageCmd: Command): void {
           commandName: 'batch',
           emoji: '📦',
           description: 'Process multiple images at once with any operation. Perfect for bulk processing, batch conversions, and automated workflows.',
-          usage: ['batch <directory> --operation resize --width 800', 'batch <directory> -op convert --format webp', 'batch <directory> -op optimize -q 85'],
+          usage: ['batch <directory> --operation resize --width 800', 'batch <directory> --operation convert --format webp', 'batch <directory> --operation optimize -q 85'],
           options: [
-            { flag: '-op, --operation <operation>', description: 'Operation: resize, convert, optimize, grayscale, blur, etc. (required)' },
+            { flag: '--operation <operation>', description: 'Operation: resize, convert, optimize, grayscale, blur, etc. (required)' },
             { flag: '-o, --output <directory>', description: 'Output directory (default: ./output)' },
             { flag: '-p, --pattern <glob>', description: 'File pattern (default: *.{jpg,jpeg,png,webp,gif})' },
             { flag: '-r, --recursive', description: 'Process subdirectories recursively' },

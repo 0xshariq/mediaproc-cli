@@ -79,3 +79,8 @@ temp/
 .github/
 .gitlab-ci.yml
 .travis.yml
+
+
+input-images/
+web/
+plugin-marketplace/

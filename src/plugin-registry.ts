@@ -9,6 +9,7 @@ export interface PluginRegistryEntry {
   package: string;
   description: string;
   category: 'core' | 'advanced' | 'future-proof';
+  type: 'official' | 'community'; // Plugin type
   dependencies?: string[];
   systemRequirements?: string[];
 }
@@ -20,6 +21,7 @@ export const PLUGIN_REGISTRY: Record<string, PluginRegistryEntry> = {
     package: '@mediaproc/image',
     description: 'Image processing (resize, convert, filters, effects)',
     category: 'core',
+    type: 'official',
     systemRequirements: ['Sharp (auto-installed)'],
   },
   
@@ -28,6 +30,7 @@ export const PLUGIN_REGISTRY: Record<string, PluginRegistryEntry> = {
     package: '@mediaproc/video',
     description: 'Video processing (transcode, compress, extract)',
     category: 'core',
+    type: 'official',
     systemRequirements: ['FFmpeg'],
   },
   
@@ -36,6 +39,7 @@ export const PLUGIN_REGISTRY: Record<string, PluginRegistryEntry> = {
     package: '@mediaproc/audio',
     description: 'Audio processing (convert, normalize, extract)',
     category: 'core',
+    type: 'official',
     systemRequirements: ['FFmpeg'],
   },
   
@@ -45,6 +49,7 @@ export const PLUGIN_REGISTRY: Record<string, PluginRegistryEntry> = {
     package: '@mediaproc/document',
     description: 'PDF/DOCX/PPTX/EPUB processing, OCR, compression',
     category: 'core',
+    type: 'official',
     systemRequirements: ['Ghostscript', 'Tesseract OCR', 'Poppler'],
   },
   
@@ -53,6 +58,7 @@ export const PLUGIN_REGISTRY: Record<string, PluginRegistryEntry> = {
     package: '@mediaproc/document',
     description: 'Alias for document plugin',
     category: 'core',
+    type: 'official',
   },
   
   // Animation & Motion Media
@@ -61,6 +67,7 @@ export const PLUGIN_REGISTRY: Record<string, PluginRegistryEntry> = {
     package: '@mediaproc/animation',
     description: 'GIF/APNG/WebP animations, Lottie, SVG animations',
     category: 'core',
+    type: 'official',
     systemRequirements: ['FFmpeg'],
   },
   
@@ -69,6 +76,7 @@ export const PLUGIN_REGISTRY: Record<string, PluginRegistryEntry> = {
     package: '@mediaproc/animation',
     description: 'Alias for animation plugin',
     category: 'core',
+    type: 'official',
   },
   
   // 3D & Spatial Media (Advanced)
@@ -77,6 +85,7 @@ export const PLUGIN_REGISTRY: Record<string, PluginRegistryEntry> = {
     package: '@mediaproc/3d',
     description: '3D models (GLTF, GLB, OBJ), textures, HDRI, AR/VR assets',
     category: 'advanced',
+    type: 'official',
     systemRequirements: ['gltf-transform'],
   },
   
@@ -85,6 +94,7 @@ export const PLUGIN_REGISTRY: Record<string, PluginRegistryEntry> = {
     package: '@mediaproc/3d',
     description: 'Alias for 3d plugin',
     category: 'advanced',
+    type: 'official',
   },
   
   // Metadata-only Processing (Underrated but Powerful)
@@ -93,6 +103,7 @@ export const PLUGIN_REGISTRY: Record<string, PluginRegistryEntry> = {
     package: '@mediaproc/metadata',
     description: 'EXIF cleanup, GPS removal, codec inspection, compliance checks',
     category: 'core',
+    type: 'official',
     systemRequirements: ['ExifTool'],
   },
   
@@ -101,6 +112,7 @@ export const PLUGIN_REGISTRY: Record<string, PluginRegistryEntry> = {
     package: '@mediaproc/metadata',
     description: 'Alias for metadata plugin',
     category: 'core',
+    type: 'official',
   },
   
   'inspect': {
@@ -108,6 +120,7 @@ export const PLUGIN_REGISTRY: Record<string, PluginRegistryEntry> = {
     package: '@mediaproc/metadata',
     description: 'Alias for metadata plugin',
     category: 'core',
+    type: 'official',
   },
   
   // Streaming & Packaging Media (Advanced, Industry-Relevant)
@@ -116,6 +129,7 @@ export const PLUGIN_REGISTRY: Record<string, PluginRegistryEntry> = {
     package: '@mediaproc/stream',
     description: 'HLS/DASH packaging, chunking, encryption, manifests',
     category: 'advanced',
+    type: 'official',
     systemRequirements: ['FFmpeg', 'Shaka Packager (optional)'],
   },
   
@@ -124,6 +138,7 @@ export const PLUGIN_REGISTRY: Record<string, PluginRegistryEntry> = {
     package: '@mediaproc/stream',
     description: 'Alias for stream plugin',
     category: 'advanced',
+    type: 'official',
   },
   
   // AI-Assisted Media (Future-Proof)
@@ -132,6 +147,7 @@ export const PLUGIN_REGISTRY: Record<string, PluginRegistryEntry> = {
     package: '@mediaproc/ai',
     description: 'Auto-captioning, scene detection, face blur, background removal, speech-to-text',
     category: 'future-proof',
+    type: 'official',
     systemRequirements: ['TensorFlow/ONNX Runtime (optional)', 'Whisper (optional)'],
   },
   
@@ -140,6 +156,7 @@ export const PLUGIN_REGISTRY: Record<string, PluginRegistryEntry> = {
     package: '@mediaproc/ai',
     description: 'Alias for ai plugin',
     category: 'future-proof',
+    type: 'official',
   },
   
   // Media Pipelines (Highest Level)
@@ -148,28 +165,46 @@ export const PLUGIN_REGISTRY: Record<string, PluginRegistryEntry> = {
     package: '@mediaproc/pipeline',
     description: 'Declarative YAML-based media processing workflows',
     category: 'advanced',
+    type: 'official',
     dependencies: ['Can use any installed plugins'],
   },
 };
 
 /**
  * Resolve short name to full package name
+ * Handles three types of plugins:
+ * 1. Official: @mediaproc/<name> (e.g., @mediaproc/image)
+ * 2. Community: mediaproc-<name> (e.g., mediaproc-super-filters)
+ * 3. Third-party: any npm package (e.g., my-custom-mediaproc-plugin)
  */
 export function resolvePluginPackage(shortName: string): string {
-  // If already full package name, return as-is
-  if (shortName.startsWith('@mediaproc/')) {
+  // Already a full package name - return as-is
+  if (shortName.includes('/') || shortName.startsWith('mediaproc-')) {
     return shortName;
   }
   
-  // Look up in registry
+  // Look up in official registry first
   const entry = PLUGIN_REGISTRY[shortName.toLowerCase()];
-  if (!entry) {
-    throw new Error(
-      `Unknown plugin: ${shortName}\nRun 'mediaproc plugins' to see available plugins`
-    );
+  if (entry) {
+    return entry.package;
   }
   
-  return entry.package;
+  // Not in registry - could be community or third-party
+  // Assume community format: mediaproc-<name>
+  return `mediaproc-${shortName}`;
+}
+
+/**
+ * Detect plugin type from package name
+ */
+export function detectPluginType(packageName: string): 'official' | 'community' | 'third-party' {
+  if (packageName.startsWith('@mediaproc/')) {
+    return 'official';
+  }
+  if (packageName.startsWith('mediaproc-')) {
+    return 'community';
+  }
+  return 'third-party';
 }
 
 /**

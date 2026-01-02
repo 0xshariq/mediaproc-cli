@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import { execa } from 'execa';
 import { join } from 'path';
-import { resolvePluginPackage, PLUGIN_REGISTRY } from '../plugin-registry.js';
+import { resolvePluginPackage, PLUGIN_REGISTRY, detectPluginType } from '../plugin-registry.js';
 import type { PluginManager } from '../plugin-manager.js';
 
 /**
@@ -44,16 +44,36 @@ export function addCommand(program: Command, pluginManager: PluginManager): void
         const pluginName = resolvePluginPackage(plugin);
         const registryEntry = Object.values(PLUGIN_REGISTRY).find(e => e.package === pluginName);
         
+        // Check if plugin is already loaded (built-in)
+        if (pluginManager.isPluginLoaded(pluginName)) {
+          ora().info(chalk.blue(`Plugin ${chalk.cyan(pluginName)} is already available (built-in)`));
+          console.log(chalk.dim(`You can use: ${chalk.white(`mediaproc ${plugin.replace('@mediaproc/', '')} <command>`)}`));
+          return;
+        }
+        
         const spinner = ora(`Installing ${chalk.cyan(pluginName)}...`).start();
+        
+        // Detect plugin type
+        const pluginType = detectPluginType(pluginName);
+        const typeLabel = pluginType === 'official' ? chalk.blue('★ OFFICIAL') 
+          : pluginType === 'community' ? chalk.green('🌐 COMMUNITY')
+          : chalk.yellow('📦 THIRD-PARTY');
         
         // Show plugin info
         if (registryEntry) {
+          spinner.info(chalk.dim(`Type: ${typeLabel}`));
           spinner.info(chalk.dim(`Description: ${registryEntry.description}`));
           if (registryEntry.systemRequirements && registryEntry.systemRequirements.length > 0) {
             spinner.info(chalk.yellow(`System requirements: ${registryEntry.systemRequirements.join(', ')}`));
           }
-          spinner.start(`Installing ${chalk.cyan(pluginName)}...`);
+        } else {
+          // Not in registry - show type
+          spinner.info(chalk.dim(`Type: ${typeLabel}`));
+          if (pluginType === 'third-party') {
+            spinner.info(chalk.yellow(`Warning: Third-party plugin not in official registry`));
+          }
         }
+        spinner.start(`Installing ${chalk.cyan(pluginName)}...`);
         
         // Determine installation scope
         let installGlobally = false;

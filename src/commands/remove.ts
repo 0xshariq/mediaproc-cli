@@ -19,6 +19,14 @@ export function removeCommand(program: Command, pluginManager: PluginManager): v
           ? plugin 
           : `@mediaproc/${plugin}`;
 
+        // Check if plugin is built-in (cannot be removed)
+        const pluginInstance = pluginManager.getPlugin(pluginName);
+        if (pluginInstance?.isBuiltIn) {
+          spinner.fail(chalk.red(`Cannot remove built-in plugin: ${pluginName}`));
+          console.log(chalk.dim('Built-in plugins are part of the core CLI and cannot be removed'));
+          process.exit(1);
+        }
+
         // Check if plugin is currently loaded
         const wasLoaded = pluginManager.isPluginLoaded(pluginName);
         if (wasLoaded) {
@@ -36,7 +44,7 @@ export function removeCommand(program: Command, pluginManager: PluginManager): v
         // Build uninstall command
         const args: string[] = [];
         if (packageManager === 'pnpm') {
-          args.push(options.global ? 'uninstall' : 'remove');
+          args.push('remove');
           if (options.global) args.push('-g');
         } else {
           args.push('uninstall');
