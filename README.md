@@ -1,6 +1,6 @@
 # MediaProc
 
-> ✨ **v0.2.0 Released!** - Image Plugin with 49 commands + Universal convert/info/optimize commands
+> ✨ **v0.3.0 Released!** - Config System + Auto-Init + Enhanced Plugin Management
 
 Universal media processing CLI with an extensible plugin architecture. One tool to process all your media - images, videos, audio, documents, and more.
 
@@ -9,6 +9,41 @@ Universal media processing CLI with an extensible plugin architecture. One tool 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3.3-blue)](https://www.typescriptlang.org/)
 [![Status](https://img.shields.io/badge/status-alpha-orange)](https://github.com/0xshariq/mediaproc)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+---
+
+## 🎉 What's New in v0.3.0
+
+**Major improvements to configuration and plugin management:**
+
+### 🏗️ Configuration System
+- **Global Config**: Configuration now lives in `~/.mediaproc/config.json` (not project-specific)
+- **Auto-initialization**: Config is automatically created on first run
+- **Plugin Tracking**: System now tracks installed and loaded plugins separately
+- **Better State Management**: No more manual package.json scanning
+
+### 🔧 Enhanced Commands
+- **`mediaproc init`**: Initialize or reset configuration with `--reset` flag
+- **`mediaproc config show`**: Beautiful display of config with plugin status
+- **`mediaproc config path`**: Quickly find your config file location
+- **`mediaproc config get <key>`**: Get specific config values
+
+### 🎯 Improved Plugin Management
+- **Smart Detection**: System automatically detects plugin installation/loading status
+- **Config Integration**: Add/remove commands update config state automatically
+- **Status Indicators**: Universal commands show plugin status (loaded/installed/not installed)
+- **Cleaner Architecture**: Removed redundant plugin discovery logic
+
+### 🐛 Bug Fixes
+- Fixed unused variable warnings in plugin-manager
+- Improved plugin prefix detection
+- Better error handling in config operations
+- Cleaner import statements
+
+### 📝 Breaking Changes
+- Config file moved from `./mediaproc.config.json` to `~/.mediaproc/config.json`
+- Run `mediaproc init` to create new config structure
+- Old project-level configs need manual migration (or just reinstall plugins)
 
 ---
 
