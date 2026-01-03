@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import path from 'path';
-import fs from 'fs';
+import { validatePaths, resolveOutputPaths, MediaExtensions } from '@mediaproc/cli';
 import type { ImageOptions } from '../types.js';
 import { createSharpInstance } from '../utils/sharp.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
@@ -88,72 +88,102 @@ export function extendCommand(imageCmd: Command): void {
         process.exit(0);
       }
 
-      const spinner = ora('Processing image...').start();
+      const spinner = ora('Validating inputs...').start();
 
       try {
-        if (!fs.existsSync(input)) {
-          spinner.fail(chalk.red(`Input file not found: ${input}`));
+        const { inputFiles, outputDir, errors } = validatePaths(input, options.output, {
+          allowedExtensions: MediaExtensions.IMAGE,
+          recursive: true,
+        });
+
+        if (errors.length > 0) {
+          spinner.fail(chalk.red('Validation failed:'));
+          errors.forEach(err => console.log(chalk.red(`  ✗ ${err}`)));
           process.exit(1);
         }
 
-        const inputPath = path.parse(input);
-        const outputPath = options.output || path.join(process.cwd(), `${inputPath.name}-extended${inputPath.ext}`);
+        if (inputFiles.length === 0) {
+          spinner.fail(chalk.red('No valid image files found'));
+          process.exit(1);
+        }
 
-        // Handle --all shortcut
+        const outputPaths = resolveOutputPaths(inputFiles, outputDir, {
+          suffix: '-extended',
+          preserveStructure: inputFiles.length > 1,
+        });
+
+        spinner.succeed(chalk.green(`Found ${inputFiles.length} image(s) to process`));
+
         const top = options.all !== undefined ? options.all : (options.top || 0);
         const bottom = options.all !== undefined ? options.all : (options.bottom || 0);
         const left = options.all !== undefined ? options.all : (options.left || 0);
         const right = options.all !== undefined ? options.all : (options.right || 0);
 
         if (options.verbose) {
-          spinner.info(chalk.blue('Configuration:'));
-          console.log(chalk.dim(`  Input: ${input}`));
-          console.log(chalk.dim(`  Output: ${outputPath}`));
+          console.log(chalk.blue('\nConfiguration:'));
           console.log(chalk.dim(`  Padding: top=${top}, bottom=${bottom}, left=${left}, right=${right}`));
           console.log(chalk.dim(`  Background: ${options.background || 'white'}`));
-          spinner.start('Processing...');
         }
 
         if (options.dryRun) {
-          spinner.info(chalk.yellow('Dry run mode - no changes will be made'));
-          console.log(chalk.green('✓ Would extend image:'));
-          console.log(chalk.dim(`  From: ${input}`));
-          console.log(chalk.dim(`  To: ${outputPath}`));
-          console.log(chalk.dim(`  Padding: ${top}/${right}/${bottom}/${left} (top/right/bottom/left)`));
+          console.log(chalk.yellow('\nDry run mode - no changes will be made\n'));
+          console.log(chalk.green(`Would extend ${inputFiles.length} image(s):`));
+          inputFiles.forEach((inputFile, index) => {
+            const outputPath = outputPaths.get(inputFile);
+            console.log(chalk.dim(`  ${index + 1}. ${path.basename(inputFile)} → ${path.basename(outputPath!)}`));
+          });
           return;
         }
 
-        const originalMetadata = await createSharpInstance(input).metadata();
-        const pipeline = createSharpInstance(input).extend({
-          top,
-          bottom,
-          left,
-          right,
-          background: options.background || 'white'
-        });
+        let successCount = 0;
+        let failCount = 0;
 
-        const outputExt = path.extname(outputPath).toLowerCase();
-        if (outputExt === '.jpg' || outputExt === '.jpeg') {
-          pipeline.jpeg({ quality: options.quality || 90 });
-        } else if (outputExt === '.png') {
-          pipeline.png({ quality: options.quality || 90 });
-        } else if (outputExt === '.webp') {
-          pipeline.webp({ quality: options.quality || 90 });
+        for (const [index, inputFile] of inputFiles.entries()) {
+          const outputPath = outputPaths.get(inputFile)!;
+          const fileName = path.basename(inputFile);
+          
+          spinner.start(`Processing ${index + 1}/${inputFiles.length}: ${fileName}...`);
+
+          try {
+            const pipeline = createSharpInstance(inputFile).extend({
+              top,
+              bottom,
+              left,
+              right,
+              background: options.background || 'white'
+            });
+
+            const outputExt = path.extname(outputPath).toLowerCase();
+            if (outputExt === '.jpg' || outputExt === '.jpeg') {
+              pipeline.jpeg({ quality: options.quality || 90 });
+            } else if (outputExt === '.png') {
+              pipeline.png({ quality: options.quality || 90 });
+            } else if (outputExt === '.webp') {
+              pipeline.webp({ quality: options.quality || 90 });
+            }
+
+            await pipeline.toFile(outputPath);
+
+            spinner.succeed(chalk.green(`✓ ${fileName} extended`));
+            successCount++;
+          } catch (error) {
+            spinner.fail(chalk.red(`✗ Failed: ${fileName}`));
+            if (options.verbose && error instanceof Error) {
+              console.log(chalk.red(`    Error: ${error.message}`));
+            }
+            failCount++;
+          }
         }
 
-        await pipeline.toFile(outputPath);
-
-        const outputMetadata = await createSharpInstance(outputPath).metadata();
-        const outputStats = fs.statSync(outputPath);
-
-        spinner.succeed(chalk.green('✓ Image extended successfully!'));
-        console.log(chalk.dim(`  Input: ${input} (${originalMetadata.width}x${originalMetadata.height})`));
-        console.log(chalk.dim(`  Output: ${outputPath} (${outputMetadata.width}x${outputMetadata.height})`));
-        console.log(chalk.dim(`  Padding: top=${top}, bottom=${bottom}, left=${left}, right=${right}`));
-        console.log(chalk.dim(`  File size: ${(outputStats.size / 1024).toFixed(2)}KB`));
+        console.log(chalk.bold('\nSummary:'));
+        console.log(chalk.green(`  ✓ Success: ${successCount}`));
+        if (failCount > 0) {
+          console.log(chalk.red(`  ✗ Failed: ${failCount}`));
+        }
+        console.log(chalk.dim(`  Output directory: ${outputDir}`));
 
       } catch (error) {
-        spinner.fail(chalk.red('Failed to extend image'));
+        spinner.fail(chalk.red('Processing failed'));
         if (options.verbose) {
           console.error(chalk.red('Error details:'), error);
         } else {

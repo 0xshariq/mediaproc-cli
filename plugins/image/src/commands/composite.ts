@@ -2,7 +2,8 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import path from 'path';
-import fs from 'fs';
+import * as fs from 'fs';
+import { validatePaths, resolveOutputPaths, MediaExtensions } from '@mediaproc/cli';
 import type { CompositeOptions } from '../types.js';
 import { createSharpInstance } from '../utils/sharp.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
@@ -94,24 +95,42 @@ export function compositeCommand(imageCmd: Command): void {
       const spinner = ora('Processing composite...').start();
 
       try {
-        if (!fs.existsSync(input)) {
-          spinner.fail(chalk.red(`Input file not found: ${input}`));
-          process.exit(1);
-        }
-
+        // Validate overlay file exists (single file)
         if (!fs.existsSync(options.overlay)) {
           spinner.fail(chalk.red(`Overlay file not found: ${options.overlay}`));
           process.exit(1);
         }
 
-        const inputPath = path.parse(input);
-        const outputPath = options.output || path.join(inputPath.dir, `${inputPath.name}-composite${inputPath.ext}`);
+        // Validate input paths (can be multiple)
+        const { inputFiles, outputDir, errors } = validatePaths(input, options.output, {
+          allowedExtensions: MediaExtensions.IMAGE,
+          recursive: true,
+        });
+
+        if (errors.length > 0) {
+          spinner.fail(chalk.red('Validation failed:'));
+          errors.forEach(err => console.log(chalk.red(`  ✗ ${err}`)));
+          process.exit(1);
+        }
+
+        if (inputFiles.length === 0) {
+          spinner.fail(chalk.red('No valid image files found'));
+          process.exit(1);
+        }
+
+        const outputPaths = resolveOutputPaths(inputFiles, outputDir, {
+          suffix: '-composite',
+          preserveStructure: inputFiles.length > 1,
+        });
+
+        let successCount = 0;
+        let failCount = 0;
 
         if (options.verbose) {
           spinner.info(chalk.blue('Configuration:'));
-          console.log(chalk.dim(`  Base: ${input}`));
+          console.log(chalk.dim(`  Found ${inputFiles.length} file(s)`));
           console.log(chalk.dim(`  Overlay: ${options.overlay}`));
-          console.log(chalk.dim(`  Output: ${outputPath}`));
+          console.log(chalk.dim(`  Output directory: ${outputDir}`));
           console.log(chalk.dim(`  Gravity: ${options.gravity}`));
           console.log(chalk.dim(`  Blend: ${options.blend}`));
           if (options.opacity !== 1) console.log(chalk.dim(`  Opacity: ${options.opacity}`));
@@ -120,20 +139,16 @@ export function compositeCommand(imageCmd: Command): void {
 
         if (options.dryRun) {
           spinner.info(chalk.yellow('Dry run mode - no changes will be made'));
-          console.log(chalk.green('✓ Would composite images:'));
-          console.log(chalk.dim(`  Base: ${input}`));
+          console.log(chalk.green(`✓ Would composite ${inputFiles.length} file(s):`));
+          inputFiles.forEach(f => console.log(chalk.dim(`  - ${f}`)));
           console.log(chalk.dim(`  Overlay: ${options.overlay}`));
           console.log(chalk.dim(`  Position: ${options.left !== undefined && options.top !== undefined ? `${options.left}x${options.top}` : options.gravity}`));
           return;
         }
 
-        const baseImage = createSharpInstance(input);
-        const metadata = await baseImage.metadata();
-
-        // Prepare overlay buffer
+        // Preload and prepare overlay buffer once
         let overlayBuffer = await createSharpInstance(options.overlay).toBuffer();
 
-        // Apply opacity if needed
         if (options.opacity !== undefined && options.opacity < 1) {
           overlayBuffer = await createSharpInstance(overlayBuffer)
             .ensureAlpha()
@@ -148,7 +163,6 @@ export function compositeCommand(imageCmd: Command): void {
           blend: options.blend || 'over',
         };
 
-        // Position overlay
         if (options.left !== undefined && options.top !== undefined) {
           compositeOptions.left = options.left;
           compositeOptions.top = options.top;
@@ -160,20 +174,34 @@ export function compositeCommand(imageCmd: Command): void {
           compositeOptions.tile = true;
         }
 
-        await baseImage.composite([compositeOptions]).toFile(outputPath);
+        // Process all files
+        for (const inputFile of inputFiles) {
+          try {
+            const fileName = path.basename(inputFile);
+            const outputPath = outputPaths.get(inputFile)!;
 
-        const outputStats = fs.statSync(outputPath);
+            await createSharpInstance(inputFile).composite([compositeOptions]).toFile(outputPath);
 
-        spinner.succeed(chalk.green('✓ Image composited successfully!'));
-        console.log(chalk.dim(`  Base: ${input}`));
-        console.log(chalk.dim(`  Overlay: ${options.overlay}`));
-        console.log(chalk.dim(`  Output: ${outputPath}`));
-        console.log(chalk.dim(`  Size: ${metadata.width}x${metadata.height}`));
-        console.log(chalk.dim(`  Position: ${options.left !== undefined && options.top !== undefined ? `${options.left},${options.top}` : options.gravity}`));
-        console.log(chalk.dim(`  File size: ${(outputStats.size / 1024).toFixed(2)}KB`));
+            spinner.succeed(chalk.green(`✓ ${fileName} composited`));
+            successCount++;
+          } catch (error) {
+            spinner.fail(chalk.red(`✗ Failed: ${path.basename(inputFile)}`));
+            if (options.verbose && error instanceof Error) {
+              console.log(chalk.red(`    Error: ${error.message}`));
+            }
+            failCount++;
+          }
+        }
+
+        console.log(chalk.bold('\nSummary:'));
+        console.log(chalk.green(`  ✓ Success: ${successCount}`));
+        if (failCount > 0) {
+          console.log(chalk.red(`  ✗ Failed: ${failCount}`));
+        }
+        console.log(chalk.dim(`  Output directory: ${outputDir}`));
 
       } catch (error) {
-        spinner.fail(chalk.red('Failed to composite images'));
+        spinner.fail(chalk.red('Processing failed'));
         if (options.verbose) {
           console.error(chalk.red('Error details:'), error);
         } else {

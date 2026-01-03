@@ -2,7 +2,8 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import path from 'path';
-import fs from 'fs';
+import * as fs from 'fs';
+import { validatePaths, resolveOutputPaths, MediaExtensions } from '@mediaproc/cli';
 import type { ImageOptions } from '../types.js';
 import { createSharpInstance, sharp } from '../utils/sharp.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
@@ -82,24 +83,42 @@ export function watermarkCommand(imageCmd: Command): void {
       const spinner = ora('Processing image...').start();
 
       try {
-        if (!fs.existsSync(input)) {
-          spinner.fail(chalk.red(`Input file not found: ${input}`));
-          process.exit(1);
-        }
-
+        // Validate watermark file exists (single file, not multi)
         if (!fs.existsSync(watermark)) {
           spinner.fail(chalk.red(`Watermark file not found: ${watermark}`));
           process.exit(1);
         }
 
-        const inputPath = path.parse(input);
-        const outputPath = options.output || path.join(process.cwd(), `${inputPath.name}-watermarked${inputPath.ext}`);
+        // Validate input paths (can be multiple)
+        const { inputFiles, outputDir, errors } = validatePaths(input, options.output, {
+          allowedExtensions: MediaExtensions.IMAGE,
+          recursive: true,
+        });
+
+        if (errors.length > 0) {
+          spinner.fail(chalk.red('Validation failed:'));
+          errors.forEach(err => console.log(chalk.red(`  ✗ ${err}`)));
+          process.exit(1);
+        }
+
+        if (inputFiles.length === 0) {
+          spinner.fail(chalk.red('No valid image files found'));
+          process.exit(1);
+        }
+
+        const outputPaths = resolveOutputPaths(inputFiles, outputDir, {
+          suffix: '-watermarked',
+          preserveStructure: inputFiles.length > 1,
+        });
+
+        let successCount = 0;
+        let failCount = 0;
 
         if (options.verbose) {
           spinner.info(chalk.blue('Configuration:'));
-          console.log(chalk.dim(`  Input: ${input}`));
+          console.log(chalk.dim(`  Found ${inputFiles.length} file(s)`));
           console.log(chalk.dim(`  Watermark: ${watermark}`));
-          console.log(chalk.dim(`  Output: ${outputPath}`));
+          console.log(chalk.dim(`  Output directory: ${outputDir}`));
           console.log(chalk.dim(`  Position: ${options.position || 'bottom-right'}`));
           console.log(chalk.dim(`  Opacity: ${options.opacity || 0.5}`));
           console.log(chalk.dim(`  Scale: ${options.scale || 0.2}`));
@@ -108,78 +127,85 @@ export function watermarkCommand(imageCmd: Command): void {
 
         if (options.dryRun) {
           spinner.info(chalk.yellow('Dry run mode - no changes will be made'));
-          console.log(chalk.green('✓ Would add watermark:'));
-          console.log(chalk.dim(`  From: ${input}`));
+          console.log(chalk.green(`✓ Would add watermark to ${inputFiles.length} file(s):`));
+          inputFiles.forEach(f => console.log(chalk.dim(`  - ${f}`)));
           console.log(chalk.dim(`  Watermark: ${watermark}`));
-          console.log(chalk.dim(`  To: ${outputPath}`));
           return;
         }
 
-        const metadata = await createSharpInstance(input).metadata();
-        const watermarkMeta = await createSharpInstance(watermark).metadata();
-
-        // Calculate watermark size based on scale
+        // Preload watermark
         const scale = options.scale || 0.2;
-        const targetWidth = Math.round((metadata.width || 0) * scale);
-        
-        if (options.verbose) {
-          console.log(chalk.dim(`  Watermark original: ${watermarkMeta.width}x${watermarkMeta.height}`));
-          console.log(chalk.dim(`  Watermark scaled: ${targetWidth}px wide`));
-          console.log(chalk.dim(`  Scale factor: ${(scale * 100).toFixed(1)}%`));
-        }
-        
-        const watermarkResized = await createSharpInstance(watermark)
-          .resize(targetWidth)
-          .toBuffer();
-
-        const watermarkResizedMeta = await sharp(watermarkResized).metadata();
-
-        // Calculate position
-        let gravity: sharp.Gravity = 'southeast';
         const position = options.position || 'bottom-right';
         
+        // Calculate gravity once
+        let gravity: sharp.Gravity = 'southeast';
         if (position === 'center') gravity = 'center';
         else if (position === 'top-left') gravity = 'northwest';
         else if (position === 'top-right') gravity = 'northeast';
         else if (position === 'bottom-left') gravity = 'southwest';
         else if (position === 'bottom-right') gravity = 'southeast';
 
-        // Apply watermark with opacity
-        const watermarkWithOpacity = await sharp(watermarkResized)
-          .composite([{
-            input: Buffer.from([255, 255, 255, Math.round((options.opacity || 0.5) * 255)]),
-            raw: { width: 1, height: 1, channels: 4 },
-            tile: true,
-            blend: 'dest-in'
-          }])
-          .toBuffer();
+        // Process all files
+        for (const inputFile of inputFiles) {
+          try {
+            const fileName = path.basename(inputFile);
+            const outputPath = outputPaths.get(inputFile)!;
 
-        const pipeline = createSharpInstance(input).composite([{
-          input: watermarkWithOpacity,
-          gravity,
-        }]);
+            const metadata = await createSharpInstance(inputFile).metadata();
 
-        const outputExt = path.extname(outputPath).toLowerCase();
-        if (outputExt === '.jpg' || outputExt === '.jpeg') {
-          pipeline.jpeg({ quality: options.quality || 90 });
-        } else if (outputExt === '.png') {
-          pipeline.png({ quality: options.quality || 90 });
-        } else if (outputExt === '.webp') {
-          pipeline.webp({ quality: options.quality || 90 });
+            // Calculate watermark size based on scale
+            const targetWidth = Math.round((metadata.width || 0) * scale);
+            
+            const watermarkResized = await createSharpInstance(watermark)
+              .resize(targetWidth)
+              .toBuffer();
+
+            // Apply watermark with opacity
+            const watermarkWithOpacity = await sharp(watermarkResized)
+              .composite([{
+                input: Buffer.from([255, 255, 255, Math.round((options.opacity || 0.5) * 255)]),
+                raw: { width: 1, height: 1, channels: 4 },
+                tile: true,
+                blend: 'dest-in'
+              }])
+              .toBuffer();
+
+            const pipeline = createSharpInstance(inputFile).composite([{
+              input: watermarkWithOpacity,
+              gravity,
+            }]);
+
+            const outputExt = path.extname(outputPath).toLowerCase();
+            if (outputExt === '.jpg' || outputExt === '.jpeg') {
+              pipeline.jpeg({ quality: options.quality || 90 });
+            } else if (outputExt === '.png') {
+              pipeline.png({ quality: options.quality || 90 });
+            } else if (outputExt === '.webp') {
+              pipeline.webp({ quality: options.quality || 90 });
+            }
+
+            await pipeline.toFile(outputPath);
+
+            spinner.succeed(chalk.green(`✓ ${fileName} watermarked`));
+            successCount++;
+          } catch (error) {
+            spinner.fail(chalk.red(`✗ Failed: ${path.basename(inputFile)}`));
+            if (options.verbose && error instanceof Error) {
+              console.log(chalk.red(`    Error: ${error.message}`));
+            }
+            failCount++;
+          }
         }
 
-        await pipeline.toFile(outputPath);
-
-        spinner.succeed(chalk.green('✓ Watermark added successfully!'));
-        console.log(chalk.dim(`  Input: ${input}`));
-        console.log(chalk.dim(`  Watermark: ${watermark}`));
-        console.log(chalk.dim(`  Output: ${outputPath}`));
-        console.log(chalk.dim(`  Position: ${position}`));
-        console.log(chalk.dim(`  Watermark size: ${watermarkResizedMeta.width}x${watermarkResizedMeta.height}`));
-        console.log(chalk.dim(`  Opacity: ${(options.opacity || 0.5) * 100}%`));
+        console.log(chalk.bold('\nSummary:'));
+        console.log(chalk.green(`  ✓ Success: ${successCount}`));
+        if (failCount > 0) {
+          console.log(chalk.red(`  ✗ Failed: ${failCount}`));
+        }
+        console.log(chalk.dim(`  Output directory: ${outputDir}`));
 
       } catch (error) {
-        spinner.fail(chalk.red('Failed to add watermark'));
+        spinner.fail(chalk.red('Processing failed'));
         if (options.verbose) {
           console.error(chalk.red('Error details:'), error);
         } else {

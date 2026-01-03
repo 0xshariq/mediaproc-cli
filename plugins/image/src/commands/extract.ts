@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import path from 'path';
-import fs from 'fs';
+import { validatePaths, resolveOutputPaths, MediaExtensions } from '@mediaproc/cli';
 import type { ExtractOptions } from '../types.js';
 import { createSharpInstance } from '../utils/sharp.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
@@ -81,19 +81,35 @@ export function extractCommand(imageCmd: Command): void {
       const spinner = ora('Extracting...').start();
 
       try {
-        if (!fs.existsSync(input)) {
-          spinner.fail(chalk.red(`Input file not found: ${input}`));
+        // Validate input paths
+        const { inputFiles, outputDir, errors } = validatePaths(input, options.output, {
+          allowedExtensions: MediaExtensions.IMAGE,
+          recursive: true,
+        });
+
+        if (errors.length > 0) {
+          spinner.fail(chalk.red('Validation failed:'));
+          errors.forEach(err => console.log(chalk.red(`  ✗ ${err}`)));
           process.exit(1);
         }
 
-        const inputPath = path.parse(input);
-        const suffix = options.channel ? `-${options.channel}` : '-extracted';
-        const outputPath = options.output || path.join(inputPath.dir, `${inputPath.name}${suffix}${inputPath.ext}`);
+        if (inputFiles.length === 0) {
+          spinner.fail(chalk.red('No valid image files found'));
+          process.exit(1);
+        }
+
+        const outputPaths = resolveOutputPaths(inputFiles, outputDir, {
+          suffix: options.channel ? `-${options.channel}` : '-extracted',
+          preserveStructure: inputFiles.length > 1,
+        });
+
+        let successCount = 0;
+        let failCount = 0;
 
         if (options.verbose) {
           spinner.info(chalk.blue('Configuration:'));
-          console.log(chalk.dim(`  Input: ${input}`));
-          console.log(chalk.dim(`  Output: ${outputPath}`));
+          console.log(chalk.dim(`  Found ${inputFiles.length} file(s)`));
+          console.log(chalk.dim(`  Output directory: ${outputDir}`));
           if (options.channel) {
             console.log(chalk.dim(`  Channel: ${options.channel}`));
           } else {
@@ -104,8 +120,8 @@ export function extractCommand(imageCmd: Command): void {
 
         if (options.dryRun) {
           spinner.info(chalk.yellow('Dry run mode - no changes will be made'));
-          console.log(chalk.green('✓ Would extract from image:'));
-          console.log(chalk.dim(`  Input: ${input}`));
+          console.log(chalk.green(`✓ Would extract from ${inputFiles.length} file(s):`));
+          inputFiles.forEach(f => console.log(chalk.dim(`  - ${f}`)));
           if (options.channel) {
             console.log(chalk.dim(`  Channel: ${options.channel}`));
           } else {
@@ -114,64 +130,79 @@ export function extractCommand(imageCmd: Command): void {
           return;
         }
 
-        const metadata = await createSharpInstance(input).metadata();
-        let pipeline = createSharpInstance(input);
-
+        // Validate channel or region options once before processing
         if (options.channel) {
-          // Extract color channel
           const channelMap = {
             red: 0,
             green: 1,
             blue: 2,
             alpha: 3
           };
-
           const channelIndex = channelMap[options.channel as keyof typeof channelMap];
-          
           if (channelIndex === undefined) {
             spinner.fail(chalk.red('Invalid channel. Use: red, green, blue, or alpha'));
             process.exit(1);
           }
-
-          // Extract specific channel
-          if (channelIndex === 3) {
-            // Alpha channel
-            pipeline = pipeline.ensureAlpha().extractChannel(channelIndex);
-          } else {
-            pipeline = pipeline.extractChannel(channelIndex as 0 | 1 | 2 | 3);
-          }
-        } else {
-          // Extract region
-          if (!options.left || !options.top || !options.width || !options.height) {
-            spinner.fail(chalk.red('Region extraction requires --left, --top, --width, and --height'));
-            process.exit(1);
-          }
-
-          pipeline = pipeline.extract({
-            left: options.left,
-            top: options.top,
-            width: options.width,
-            height: options.height
-          });
+        } else if (!options.left || !options.top || !options.width || !options.height) {
+          spinner.fail(chalk.red('Region extraction requires --left, --top, --width, and --height'));
+          process.exit(1);
         }
 
-        await pipeline.toFile(outputPath);
+        // Process all files
+        for (const inputFile of inputFiles) {
+          try {
+            const fileName = path.basename(inputFile);
+            const outputPath = outputPaths.get(inputFile)!;
 
-        const outputStats = fs.statSync(outputPath);
-        const outputMetadata = await createSharpInstance(outputPath).metadata();
+            let pipeline = createSharpInstance(inputFile);
 
-        spinner.succeed(chalk.green('✓ Extraction completed successfully!'));
-        console.log(chalk.dim(`  Input: ${input} (${metadata.width}x${metadata.height})`));
-        console.log(chalk.dim(`  Output: ${outputPath} (${outputMetadata.width}x${outputMetadata.height})`));
-        if (options.channel) {
-          console.log(chalk.dim(`  Channel: ${options.channel}`));
-        } else {
-          console.log(chalk.dim(`  Region: ${options.left},${options.top} → ${options.width}x${options.height}`));
+            if (options.channel) {
+              // Extract color channel
+              const channelMap = {
+                red: 0,
+                green: 1,
+                blue: 2,
+                alpha: 3
+              };
+              const channelIndex = channelMap[options.channel as keyof typeof channelMap];
+              
+              if (channelIndex === 3) {
+                pipeline = pipeline.ensureAlpha().extractChannel(channelIndex);
+              } else {
+                pipeline = pipeline.extractChannel(channelIndex as 0 | 1 | 2 | 3);
+              }
+            } else {
+              // Extract region
+              pipeline = pipeline.extract({
+                left: options.left!,
+                top: options.top!,
+                width: options.width!,
+                height: options.height!
+              });
+            }
+
+            await pipeline.toFile(outputPath);
+
+            spinner.succeed(chalk.green(`✓ ${fileName} extracted`));
+            successCount++;
+          } catch (error) {
+            spinner.fail(chalk.red(`✗ Failed: ${path.basename(inputFile)}`));
+            if (options.verbose && error instanceof Error) {
+              console.log(chalk.red(`    Error: ${error.message}`));
+            }
+            failCount++;
+          }
         }
-        console.log(chalk.dim(`  File size: ${(outputStats.size / 1024).toFixed(2)}KB`));
+
+        console.log(chalk.bold('\nSummary:'));
+        console.log(chalk.green(`  ✓ Success: ${successCount}`));
+        if (failCount > 0) {
+          console.log(chalk.red(`  ✗ Failed: ${failCount}`));
+        }
+        console.log(chalk.dim(`  Output directory: ${outputDir}`));
 
       } catch (error) {
-        spinner.fail(chalk.red('Failed to extract'));
+        spinner.fail(chalk.red('Processing failed'));
         if (options.verbose) {
           console.error(chalk.red('Error details:'), error);
         } else {

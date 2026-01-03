@@ -2,13 +2,14 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import path from 'path';
-import fs from 'fs';
+import { validatePaths, MediaExtensions } from '@mediaproc/cli';
 import { createSharpInstance } from '../utils/sharp.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
 
 interface PaletteOptions {
   input: string;
   colors?: number;
+  dryRun?: boolean;
   verbose?: boolean;
   help?: boolean;
 }
@@ -18,6 +19,7 @@ export function paletteCommand(imageCmd: Command): void {
     .command('palette <input>')
     .description('Extract dominant color palette from image')
     .option('-c, --colors <count>', 'Number of colors to extract 1-10 (default: 5)', parseInt, 5)
+    .option('--dry-run', 'Show what would be analyzed without executing')
     .option('-v, --verbose', 'Verbose output with hex codes')
     .option('--help', 'Display help for palette command')
     .action(async (input: string, options: PaletteOptions) => {
@@ -70,34 +72,77 @@ export function paletteCommand(imageCmd: Command): void {
         process.exit(0);
       }
 
-      const spinner = ora('Analyzing image colors...').start();
+      const spinner = ora('Validating input...').start();
 
       try {
-        if (!fs.existsSync(input)) {
-          spinner.fail(chalk.red(`Input file not found: ${input}`));
+        // Validate input paths
+        const { inputFiles, errors } = validatePaths(input, undefined, {
+          allowedExtensions: MediaExtensions.IMAGE,
+          recursive: true,
+        });
+
+        if (errors.length > 0) {
+          spinner.fail(chalk.red('Validation failed:'));
+          errors.forEach(err => console.log(chalk.red(`  ✗ ${err}`)));
           process.exit(1);
         }
 
-        const colorCount = Math.max(1, Math.min(10, options.colors || 5));
+        if (inputFiles.length === 0) {
+          spinner.fail(chalk.red('No valid image files found'));
+          process.exit(1);
+        }
 
-        const metadata = await createSharpInstance(input).metadata();
-        const stats = await createSharpInstance(input).stats();
+        const totalFiles = inputFiles.length;
 
-        spinner.succeed(chalk.green('✓ Color palette extracted!\n'));
+        // Dry-run mode
+        if (options.dryRun) {
+          spinner.info(chalk.blue('🔍 Dry run - files that would be analyzed:'));
+          inputFiles.forEach((file: string, index: number) => {
+            console.log(chalk.dim(`  [${index + 1}/${totalFiles}] ${file}`));
+          });
+          console.log(chalk.dim(`\n  Total files: ${totalFiles}`));
+          process.exit(0);
+        }
 
-        console.log(chalk.bold.cyan(`📷 Image: ${path.basename(input)}`));
-        console.log(chalk.dim(`   Size: ${metadata.width}x${metadata.height}`));
-        console.log(chalk.dim(`   Format: ${metadata.format?.toUpperCase()}`));
-        console.log('');
+        spinner.succeed(chalk.green(`Found ${totalFiles} file${totalFiles > 1 ? 's' : ''} to analyze`));
 
-        console.log(chalk.bold.cyan(`🎨 Dominant Color Palette (${colorCount} colors):\n`));
+        let successCount = 0;
+        let failCount = 0;
 
-        // Get dominant color
-        if (stats.dominant) {
-          const { r, g, b } = stats.dominant;
-          const hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`.toUpperCase();
-          
-          console.log(chalk.bold('  Primary Dominant Color:'));
+        const count = Math.max(options.count || 10, 1);
+
+        // Process each file
+        for (let i = 0; i < inputFiles.length; i++) {
+          const inputFile = inputFiles[i];
+          const fileNum = `[${i + 1}/${totalFiles}]`;
+
+          if (totalFiles > 1) {
+            console.log(chalk.bold.cyan(`\n${'='.repeat(80)}`));
+            console.log(chalk.bold.cyan(`${fileNum} ${path.basename(inputFile)}`));
+            console.log(chalk.bold.cyan('='.repeat(80)));
+          }
+
+          const fileSpinner = ora(`${fileNum} Analyzing image colors...`).start();
+
+          try {
+            const metadata = await createSharpInstance(inputFile).metadata();
+            const stats = await createSharpInstance(inputFile).stats();
+
+            fileSpinner.succeed(chalk.green(`${fileNum} Color palette extracted!\n`));
+
+            console.log(chalk.bold.cyan(`📷 Image: ${path.basename(inputFile)}`));
+            console.log(chalk.dim(`   Size: ${metadata.width}x${metadata.height}`));
+            console.log(chalk.dim(`   Format: ${metadata.format?.toUpperCase()}`));
+            console.log('');
+
+            console.log(chalk.bold.cyan(`🎨 Dominant Color Palette (${colorCount} colors):\n`));
+
+            // Get dominant color
+            if (stats.dominant) {
+              const { r, g, b } = stats.dominant;
+              const hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`.toUpperCase();
+              
+              console.log(chalk.bold('  Primary Dominant Color:'));
           console.log(`  ${chalk.rgb(r, g, b)('██████')} RGB(${r}, ${g}, ${b}) ${chalk.dim(hex)}`);
           console.log('');
         }
@@ -142,17 +187,43 @@ export function paletteCommand(imageCmd: Command): void {
           const maxChannel = Math.max(avgR, avgG, avgB);
           const minChannel = Math.min(avgR, avgG, avgB);
           const saturation = maxChannel === 0 ? 0 : ((maxChannel - minChannel) / maxChannel) * 100;
-          console.log(chalk.dim(`  Saturation: ${saturation.toFixed(1)}%`));
+            console.log(chalk.dim(`  Saturation: ${saturation.toFixed(1)}%`));
+            }
+
+            if (options.verbose) {
+              console.log('');
+              console.log(chalk.dim('💡 Tip: Use these colors in your designs, websites, or branding!'));
+              console.log(chalk.dim('   Copy hex codes directly for CSS/design tools.'));
+            }
+
+            successCount++;
+          } catch (error) {
+            failCount++;
+            fileSpinner.fail(chalk.red(`${fileNum} Failed to extract palette`));
+            if (options.verbose) {
+              console.error(chalk.red('Error details:'), error);
+            } else {
+              console.error(chalk.red((error as Error).message));
+            }
+          }
         }
 
-        if (options.verbose) {
-          console.log('');
-          console.log(chalk.dim('💡 Tip: Use these colors in your designs, websites, or branding!'));
-          console.log(chalk.dim('   Copy hex codes directly for CSS/design tools.'));
+        // Summary
+        if (totalFiles > 1) {
+          console.log(chalk.bold.cyan(`\n${'='.repeat(80)}`));
+          console.log(chalk.bold.green('\n✓ Analysis Summary:'));
+          console.log(chalk.dim(`  Analyzed: ${successCount}/${totalFiles}`));
+          if (failCount > 0) {
+            console.log(chalk.dim(`  Failed: ${failCount}`));
+          }
+        }
+
+        if (failCount > 0 && failCount === totalFiles) {
+          process.exit(1);
         }
 
       } catch (error) {
-        spinner.fail(chalk.red('Failed to extract palette'));
+        spinner.fail(chalk.red('Failed to validate input'));
         if (options.verbose) {
           console.error(chalk.red('Error details:'), error);
         } else {

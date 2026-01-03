@@ -2,10 +2,11 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import path from 'path';
-import fs from 'fs';
 import type { ResizeOptions } from '../types.js';
 import { createSharpInstance, sharp } from '../utils/sharp.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
+// Dependency injection: Import global path validator from core
+import { validatePaths, resolveOutputPaths, MediaExtensions } from '@mediaproc/cli';
 
 export function resizeCommand(imageCmd: Command): void {
   imageCmd
@@ -88,112 +89,145 @@ export function resizeCommand(imageCmd: Command): void {
         process.exit(0);
       }
 
-      const spinner = ora('Processing image...').start();
+      const spinner = ora('Validating inputs...').start();
 
       try {
-        // Validate input file
-        if (!fs.existsSync(input)) {
-          spinner.fail(chalk.red(`Input file not found: ${input}`));
-          process.exit(1);
-        }
-
         // Validate dimensions
         if (!options.width && !options.height) {
           spinner.fail(chalk.red('At least one dimension (width or height) must be specified'));
           process.exit(1);
         }
 
-        // Generate output path if not provided
-        const inputPath = path.parse(input);
-        const outputPath = options.output || path.join(
-          process.cwd(),
-          `${inputPath.name}-resized${inputPath.ext}`
-        );
+        // Use global path validator (dependency injection)
+        const { inputFiles, outputDir, errors } = validatePaths(input, options.output, {
+          allowedExtensions: MediaExtensions.IMAGE,
+          recursive: true,
+        });
+
+        // Check for validation errors
+        if (errors.length > 0) {
+          spinner.fail(chalk.red('Validation failed:'));
+          errors.forEach(err => console.log(chalk.red(`  ✗ ${err}`)));
+          process.exit(1);
+        }
+
+        if (inputFiles.length === 0) {
+          spinner.fail(chalk.red('No valid image files found'));
+          process.exit(1);
+        }
+
+        // Resolve output paths for all input files
+        const outputPaths = resolveOutputPaths(inputFiles, outputDir, {
+          suffix: '-resized',
+          preserveStructure: inputFiles.length > 1,
+        });
+
+        spinner.succeed(chalk.green(`Found ${inputFiles.length} image(s) to process`));
 
         if (options.verbose) {
-          spinner.info(chalk.blue('Configuration:'));
-          console.log(chalk.dim(`  Input: ${input}`));
-          console.log(chalk.dim(`  Output: ${outputPath}`));
+          console.log(chalk.blue('\nConfiguration:'));
           console.log(chalk.dim(`  Width: ${options.width || 'auto'}`));
           console.log(chalk.dim(`  Height: ${options.height || 'auto'}`));
           console.log(chalk.dim(`  Quality: ${options.quality}`));
           console.log(chalk.dim(`  Fit: ${options.fit}`));
           console.log(chalk.dim(`  Maintain aspect ratio: ${options.maintainAspectRatio !== false}`));
           console.log(chalk.dim(`  Kernel: ${options.kernel || 'lanczos3'}`));
-          spinner.start('Processing...');
         }
 
         // Dry run mode
         if (options.dryRun) {
-          spinner.info(chalk.yellow('Dry run mode - no changes will be made'));
-          console.log(chalk.green('✓ Would resize image:'));
-          console.log(chalk.dim(`  From: ${input}`));
-          console.log(chalk.dim(`  To: ${outputPath}`));
-          console.log(chalk.dim(`  Dimensions: ${options.width || 'auto'}x${options.height || 'auto'}`));
+          console.log(chalk.yellow('\nDry run mode - no changes will be made\n'));
+          console.log(chalk.green(`Would resize ${inputFiles.length} image(s):`));
+          inputFiles.forEach((inputFile, index) => {
+            const outputPath = outputPaths.get(inputFile);
+            console.log(chalk.dim(`  ${index + 1}. ${path.basename(inputFile)} → ${path.basename(outputPath!)}`));
+          });
           return;
         }
 
-        // Get input image metadata
-        const metadata = await createSharpInstance(input).metadata();
+        // Process each input file
+        let successCount = 0;
+        let failCount = 0;
 
-        if (options.verbose) {
-          spinner.text = 'Resizing image...';
-          console.log(chalk.dim(`  Original size: ${metadata.width}x${metadata.height}`));
+        for (const [index, inputFile] of inputFiles.entries()) {
+          const outputPath = outputPaths.get(inputFile)!;
+          const fileName = path.basename(inputFile);
+
+          spinner.start(`Processing ${index + 1}/${inputFiles.length}: ${fileName}...`);
+
+          try {
+            // Get input image metadata
+            const metadata = await createSharpInstance(inputFile).metadata();
+
+            if (options.verbose) {
+              console.log(chalk.dim(`    Original size: ${metadata.width}x${metadata.height}`));
+            }
+
+            // Build Sharp resize options
+            const resizeOptions: sharp.ResizeOptions = {
+              width: options.width,
+              height: options.height,
+              fit: options.fit as keyof sharp.FitEnum || 'cover',
+              position: options.position as any || 'center',
+              background: options.background || '#ffffff',
+              kernel: options.kernel as keyof sharp.KernelEnum || 'lanczos3',
+              withoutEnlargement: false,
+            };
+
+            // If maintain aspect ratio is false, use 'fill' fit mode
+            if (options.maintainAspectRatio === false) {
+              resizeOptions.fit = 'fill';
+            }
+
+            // Process image with Sharp
+            const pipeline = createSharpInstance(inputFile).resize(resizeOptions);
+
+            // Apply quality settings based on output format
+            const outputExt = path.extname(outputPath).toLowerCase();
+
+            if (outputExt === '.jpg' || outputExt === '.jpeg') {
+              pipeline.jpeg({ quality: options.quality || 90 });
+            } else if (outputExt === '.png') {
+              pipeline.png({ quality: options.quality || 90, compressionLevel: 9 });
+            } else if (outputExt === '.webp') {
+              pipeline.webp({ quality: options.quality || 90 });
+            } else if (outputExt === '.avif') {
+              pipeline.avif({ quality: options.quality || 90 });
+            }
+
+            // Save the resized image
+            await pipeline.toFile(outputPath);
+
+            // Get output metadata
+            const outputMetadata = await createSharpInstance(outputPath).metadata();
+
+            spinner.succeed(chalk.green(`✓ ${fileName} resized successfully`));
+
+            if (options.verbose) {
+              console.log(chalk.dim(`    New size: ${outputMetadata.width}x${outputMetadata.height}`));
+              console.log(chalk.dim(`    Saved to: ${outputPath}`));
+            }
+
+            successCount++;
+          } catch (error) {
+            spinner.fail(chalk.red(`✗ Failed to resize ${fileName}`));
+            if (options.verbose && error instanceof Error) {
+              console.log(chalk.red(`    Error: ${error.message}`));
+            }
+            failCount++;
+          }
         }
 
-        // Build Sharp resize options
-        const resizeOptions: sharp.ResizeOptions = {
-          width: options.width,
-          height: options.height,
-          fit: options.fit as keyof sharp.FitEnum || 'cover',
-          position: options.position as any || 'center',
-          background: options.background || '#ffffff',
-          kernel: options.kernel as keyof sharp.KernelEnum || 'lanczos3',
-          withoutEnlargement: false,
-        };
-
-        // If maintain aspect ratio is false, use 'fill' fit mode
-        if (options.maintainAspectRatio === false) {
-          resizeOptions.fit = 'fill';
+        // Final summary
+        console.log(chalk.bold('\nResize Summary:'));
+        console.log(chalk.green(`  ✓ Success: ${successCount}`));
+        if (failCount > 0) {
+          console.log(chalk.red(`  ✗ Failed: ${failCount}`));
         }
-
-        // Process image with Sharp
-        const pipeline = createSharpInstance(input).resize(resizeOptions);
-
-        // Apply quality settings based on output format
-        const outputExt = path.extname(outputPath).toLowerCase();
-
-        if (outputExt === '.jpg' || outputExt === '.jpeg') {
-          pipeline.jpeg({ quality: options.quality || 90 });
-        } else if (outputExt === '.png') {
-          pipeline.png({ quality: options.quality || 90, compressionLevel: 9 });
-        } else if (outputExt === '.webp') {
-          pipeline.webp({ quality: options.quality || 90 });
-        } else if (outputExt === '.avif') {
-          pipeline.avif({ quality: options.quality || 90 });
-        }
-
-        // Save the resized image
-        await pipeline.toFile(outputPath);
-
-        // Get output metadata
-        const outputMetadata = await createSharpInstance(outputPath).metadata();
-
-        spinner.succeed(chalk.green('✓ Image resized successfully!'));
-        console.log(chalk.dim(`  Input: ${input}`));
-        console.log(chalk.dim(`  Output: ${outputPath}`));
-        console.log(chalk.dim(`  Original size: ${metadata.width}x${metadata.height}`));
-        console.log(chalk.dim(`  New size: ${outputMetadata.width}x${outputMetadata.height}`));
-        console.log(chalk.dim(`  Format: ${outputMetadata.format}`));
-
-        // Show file size info
-        const inputStats = fs.statSync(input);
-        const outputStats = fs.statSync(outputPath);
-        const sizeDiff = ((outputStats.size - inputStats.size) / inputStats.size * 100).toFixed(2);
-        console.log(chalk.dim(`  Size: ${(inputStats.size / 1024).toFixed(2)}KB → ${(outputStats.size / 1024).toFixed(2)}KB (${sizeDiff > '0' ? '+' : ''}${sizeDiff}%)`));
+        console.log(chalk.dim(`  Output directory: ${outputDir}`));
 
       } catch (error) {
-        spinner.fail(chalk.red('Failed to resize image'));
+        spinner.fail(chalk.red('Failed to resize images'));
         if (options.verbose) {
           console.error(chalk.red('Error details:'), error);
         } else {

@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import path from 'path';
-import fs from 'fs';
+import { validatePaths, resolveOutputPaths, MediaExtensions } from '@mediaproc/cli';
 import { createSharpInstance } from '../utils/sharp.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
 
@@ -90,8 +90,20 @@ export function mirrorCommand(imageCmd: Command): void {
       const spinner = ora('Creating mirror effect...').start();
 
       try {
-        if (!fs.existsSync(input)) {
-          spinner.fail(chalk.red(`Input file not found: ${input}`));
+        // Validate input paths
+        const { inputFiles, outputDir, errors } = validatePaths(input, options.output, {
+          allowedExtensions: MediaExtensions.IMAGE,
+          recursive: true,
+        });
+
+        if (errors.length > 0) {
+          spinner.fail(chalk.red('Validation failed:'));
+          errors.forEach(err => console.log(chalk.red(`  ✗ ${err}`)));
+          process.exit(1);
+        }
+
+        if (inputFiles.length === 0) {
+          spinner.fail(chalk.red('No valid image files found'));
           process.exit(1);
         }
 
@@ -103,138 +115,151 @@ export function mirrorCommand(imageCmd: Command): void {
           process.exit(1);
         }
 
-        const inputPath = path.parse(input);
-        const outputPath = options.output || path.join(inputPath.dir, `${inputPath.name}-mirror-${mode}${inputPath.ext}`);
+        const outputPaths = resolveOutputPaths(inputFiles, outputDir, {
+          suffix: `-mirror-${mode}`,
+          preserveStructure: inputFiles.length > 1,
+        });
 
-        const sharpInstance = createSharpInstance(input);
-        const metadata = await sharpInstance.metadata();
-        const width = metadata.width!;
-        const height = metadata.height!;
+        let successCount = 0;
+        let failCount = 0;
 
         if (options.verbose) {
           spinner.info(chalk.blue('Configuration:'));
-          console.log(chalk.dim(`  Input: ${input} (${width}x${height})`));
+          console.log(chalk.dim(`  Found ${inputFiles.length} file(s)`));
           console.log(chalk.dim(`  Mode: ${mode}`));
-          console.log(chalk.dim(`  Output: ${outputPath}`));
+          console.log(chalk.dim(`  Output directory: ${outputDir}`));
           spinner.start('Processing...');
         }
 
         if (options.dryRun) {
           spinner.info(chalk.yellow('Dry run mode - no changes will be made'));
-          console.log(chalk.green(`✓ Would create ${mode} mirror effect`));
-          console.log(chalk.dim(`  Output: ${outputPath}`));
+          console.log(chalk.green(`✓ Would create ${mode} mirror effect for ${inputFiles.length} file(s):`));
+          inputFiles.forEach(f => console.log(chalk.dim(`  - ${f}`)));
           return;
         }
 
-        let resultBuffer: Buffer;
+        // Process all files
+        for (const inputFile of inputFiles) {
+          try {
+            const fileName = path.basename(inputFile);
+            const outputPath = outputPaths.get(inputFile)!;
 
-        if (mode === 'horizontal') {
-          // Mirror left to right
-          const originalBuffer = await sharpInstance.toBuffer();
-          const flippedBuffer = await createSharpInstance(originalBuffer).flop().toBuffer();
-          
-          // Stack side by side
-          resultBuffer = await createSharpInstance({
-            create: {
-              width: width * 2,
-              height: height,
-              channels: 4,
-              background: { r: 0, g: 0, b: 0, alpha: 0 }
-            }
-          })
-          .composite([
-            { input: originalBuffer, left: 0, top: 0 },
-            { input: flippedBuffer, left: width, top: 0 }
-          ])
-          .toBuffer();
+            const sharpInstance = createSharpInstance(inputFile);
+            const metadata = await sharpInstance.metadata();
+            const width = metadata.width!;
+            const height = metadata.height!;
 
-        } else if (mode === 'vertical') {
-          // Mirror top to bottom
-          const originalBuffer = await sharpInstance.toBuffer();
-          const flippedBuffer = await createSharpInstance(originalBuffer).flip().toBuffer();
-          
-          // Stack top and bottom
-          resultBuffer = await createSharpInstance({
-            create: {
-              width: width,
-              height: height * 2,
-              channels: 4,
-              background: { r: 0, g: 0, b: 0, alpha: 0 }
-            }
-          })
-          .composite([
-            { input: originalBuffer, left: 0, top: 0 },
-            { input: flippedBuffer, left: 0, top: height }
-          ])
-          .toBuffer();
+            let resultBuffer: Buffer;
 
-        } else if (mode === 'both') {
-          // Mirror both axes (2x2 grid)
-          const originalBuffer = await sharpInstance.toBuffer();
-          const flopBuffer = await createSharpInstance(originalBuffer).flop().toBuffer();
-          const flipBuffer = await createSharpInstance(originalBuffer).flip().toBuffer();
-          const bothBuffer = await createSharpInstance(originalBuffer).flop().flip().toBuffer();
-          
-          resultBuffer = await createSharpInstance({
-            create: {
-              width: width * 2,
-              height: height * 2,
-              channels: 4,
-              background: { r: 0, g: 0, b: 0, alpha: 0 }
-            }
-          })
-          .composite([
-            { input: originalBuffer, left: 0, top: 0 },
-            { input: flopBuffer, left: width, top: 0 },
-            { input: flipBuffer, left: 0, top: height },
-            { input: bothBuffer, left: width, top: height }
-          ])
-          .toBuffer();
+            if (mode === 'horizontal') {
+              const originalBuffer = await sharpInstance.toBuffer();
+              const flippedBuffer = await createSharpInstance(originalBuffer).flop().toBuffer();
+              
+              resultBuffer = await createSharpInstance({
+                create: {
+                  width: width * 2,
+                  height: height,
+                  channels: 4,
+                  background: { r: 0, g: 0, b: 0, alpha: 0 }
+                }
+              })
+              .composite([
+                { input: originalBuffer, left: 0, top: 0 },
+                { input: flippedBuffer, left: width, top: 0 }
+              ])
+              .toBuffer();
 
-        } else { // quad
-          // Kaleidoscope: take center portion and mirror in all 4 quadrants
-          const halfWidth = Math.floor(width / 2);
-          const halfHeight = Math.floor(height / 2);
-          
-          // Extract center quarter
-          const centerBuffer = await sharpInstance
-            .extract({ left: halfWidth - Math.floor(halfWidth/2), top: halfHeight - Math.floor(halfHeight/2), width: halfWidth, height: halfHeight })
-            .toBuffer();
-          
-          const flopBuffer = await createSharpInstance(centerBuffer).flop().toBuffer();
-          const flipBuffer = await createSharpInstance(centerBuffer).flip().toBuffer();
-          const bothBuffer = await createSharpInstance(centerBuffer).flop().flip().toBuffer();
-          
-          resultBuffer = await createSharpInstance({
-            create: {
-              width: halfWidth * 2,
-              height: halfHeight * 2,
-              channels: 4,
-              background: { r: 0, g: 0, b: 0, alpha: 0 }
+            } else if (mode === 'vertical') {
+              const originalBuffer = await sharpInstance.toBuffer();
+              const flippedBuffer = await createSharpInstance(originalBuffer).flip().toBuffer();
+              
+              resultBuffer = await createSharpInstance({
+                create: {
+                  width: width,
+                  height: height * 2,
+                  channels: 4,
+                  background: { r: 0, g: 0, b: 0, alpha: 0 }
+                }
+              })
+              .composite([
+                { input: originalBuffer, left: 0, top: 0 },
+                { input: flippedBuffer, left: 0, top: height }
+              ])
+              .toBuffer();
+
+            } else if (mode === 'both') {
+              const originalBuffer = await sharpInstance.toBuffer();
+              const flopBuffer = await createSharpInstance(originalBuffer).flop().toBuffer();
+              const flipBuffer = await createSharpInstance(originalBuffer).flip().toBuffer();
+              const bothBuffer = await createSharpInstance(originalBuffer).flop().flip().toBuffer();
+              
+              resultBuffer = await createSharpInstance({
+                create: {
+                  width: width * 2,
+                  height: height * 2,
+                  channels: 4,
+                  background: { r: 0, g: 0, b: 0, alpha: 0 }
+                }
+              })
+              .composite([
+                { input: originalBuffer, left: 0, top: 0 },
+                { input: flopBuffer, left: width, top: 0 },
+                { input: flipBuffer, left: 0, top: height },
+                { input: bothBuffer, left: width, top: height }
+              ])
+              .toBuffer();
+
+            } else { // quad
+              const halfWidth = Math.floor(width / 2);
+              const halfHeight = Math.floor(height / 2);
+              
+              const centerBuffer = await sharpInstance
+                .extract({ left: halfWidth - Math.floor(halfWidth/2), top: halfHeight - Math.floor(halfHeight/2), width: halfWidth, height: halfHeight })
+                .toBuffer();
+              
+              const flopBuffer = await createSharpInstance(centerBuffer).flop().toBuffer();
+              const flipBuffer = await createSharpInstance(centerBuffer).flip().toBuffer();
+              const bothBuffer = await createSharpInstance(centerBuffer).flop().flip().toBuffer();
+              
+              resultBuffer = await createSharpInstance({
+                create: {
+                  width: halfWidth * 2,
+                  height: halfHeight * 2,
+                  channels: 4,
+                  background: { r: 0, g: 0, b: 0, alpha: 0 }
+                }
+              })
+              .composite([
+                { input: centerBuffer, left: 0, top: 0 },
+                { input: flopBuffer, left: halfWidth, top: 0 },
+                { input: flipBuffer, left: 0, top: halfHeight },
+                { input: bothBuffer, left: halfWidth, top: halfHeight }
+              ])
+              .toBuffer();
             }
-          })
-          .composite([
-            { input: centerBuffer, left: 0, top: 0 },
-            { input: flopBuffer, left: halfWidth, top: 0 },
-            { input: flipBuffer, left: 0, top: halfHeight },
-            { input: bothBuffer, left: halfWidth, top: halfHeight }
-          ])
-          .toBuffer();
+
+            await createSharpInstance(resultBuffer).toFile(outputPath);
+
+            spinner.succeed(chalk.green(`✓ ${fileName} mirror effect created`));
+            successCount++;
+          } catch (error) {
+            spinner.fail(chalk.red(`✗ Failed: ${path.basename(inputFile)}`));
+            if (options.verbose && error instanceof Error) {
+              console.log(chalk.red(`    Error: ${error.message}`));
+            }
+            failCount++;
+          }
         }
 
-        // Save result
-        await createSharpInstance(resultBuffer).toFile(outputPath);
-
-        const outputStats = fs.statSync(outputPath);
-
-        spinner.succeed(chalk.green('✓ Mirror effect created successfully!'));
-        console.log(chalk.dim(`  Mode: ${mode}`));
-        console.log(chalk.dim(`  Input: ${input}`));
-        console.log(chalk.dim(`  Output: ${outputPath}`));
-        console.log(chalk.dim(`  Size: ${(outputStats.size / 1024).toFixed(2)}KB`));
+        console.log(chalk.bold('\nSummary:'));
+        console.log(chalk.green(`  ✓ Success: ${successCount}`));
+        if (failCount > 0) {
+          console.log(chalk.red(`  ✗ Failed: ${failCount}`));
+        }
+        console.log(chalk.dim(`  Output directory: ${outputDir}`));
 
       } catch (error) {
-        spinner.fail(chalk.red('Failed to create mirror effect'));
+        spinner.fail(chalk.red('Processing failed'));
         if (options.verbose) {
           console.error(chalk.red('Error details:'), error);
         } else {

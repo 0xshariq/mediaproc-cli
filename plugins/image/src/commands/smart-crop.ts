@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import path from 'path';
-import fs from 'fs';
+import { validatePaths, resolveOutputPaths, MediaExtensions } from '@mediaproc/cli';
 import { createSharpInstance } from '../utils/sharp.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
 
@@ -94,60 +94,84 @@ export function smartCropCommand(imageCmd: Command): void {
       const spinner = ora('Analyzing image content...').start();
 
       try {
-        if (!fs.existsSync(input)) {
-          spinner.fail(chalk.red(`Input file not found: ${input}`));
+        // Validate input paths
+        const { inputFiles, outputDir, errors } = validatePaths(input, options.output, {
+          allowedExtensions: MediaExtensions.IMAGE,
+          recursive: true,
+        });
+
+        if (errors.length > 0) {
+          spinner.fail(chalk.red('Validation failed:'));
+          errors.forEach(err => console.log(chalk.red(`  ✗ ${err}`)));
           process.exit(1);
         }
 
-        const inputPath = path.parse(input);
-        const outputPath = options.output || path.join(inputPath.dir, `${inputPath.name}-cropped${inputPath.ext}`);
-
-        const metadata = await createSharpInstance(input).metadata();
-
-        if (!metadata.width || !metadata.height) {
-          spinner.fail(chalk.red('Unable to read image dimensions'));
+        if (inputFiles.length === 0) {
+          spinner.fail(chalk.red('No valid image files found'));
           process.exit(1);
         }
+
+        const outputPaths = resolveOutputPaths(inputFiles, outputDir, {
+          suffix: '-cropped',
+          preserveStructure: inputFiles.length > 1,
+        });
+
+        let successCount = 0;
+        let failCount = 0;
 
         if (options.verbose) {
           spinner.info(chalk.blue('Configuration:'));
-          console.log(chalk.dim(`  Input: ${input} (${metadata.width}x${metadata.height})`));
+          console.log(chalk.dim(`  Found ${inputFiles.length} file(s)`));
           console.log(chalk.dim(`  Target: ${options.width}x${options.height}`));
           console.log(chalk.dim(`  Strategy: ${options.strategy}`));
-          console.log(chalk.dim(`  Output: ${outputPath}`));
+          console.log(chalk.dim(`  Output directory: ${outputDir}`));
           spinner.start('Processing...');
         }
 
         if (options.dryRun) {
           spinner.info(chalk.yellow('Dry run mode - no changes will be made'));
-          console.log(chalk.green('✓ Would smart crop:'));
-          console.log(chalk.dim(`  From: ${metadata.width}x${metadata.height}`));
+          console.log(chalk.green(`✓ Would smart crop ${inputFiles.length} file(s):`));
+          inputFiles.forEach(f => console.log(chalk.dim(`  - ${f}`)));
           console.log(chalk.dim(`  To: ${options.width}x${options.height}`));
           console.log(chalk.dim(`  Strategy: ${options.strategy}`));
           return;
         }
 
-        // Use Sharp's smart cropping capabilities
         const strategy = options.strategy === 'attention' ? 'attention' : 'entropy';
 
-        await createSharpInstance(input)
-          .resize(options.width, options.height, {
-            fit: 'cover',
-            position: strategy
-          })
-          .toFile(outputPath);
+        // Process all files
+        for (const inputFile of inputFiles) {
+          try {
+            const fileName = path.basename(inputFile);
+            const outputPath = outputPaths.get(inputFile)!;
 
-        const outputStats = fs.statSync(outputPath);
+            await createSharpInstance(inputFile)
+              .resize(options.width, options.height, {
+                fit: 'cover',
+                position: strategy
+              })
+              .toFile(outputPath);
 
-        spinner.succeed(chalk.green('✓ Smart crop completed successfully!'));
-        console.log(chalk.dim(`  Input: ${input} (${metadata.width}x${metadata.height})`));
-        console.log(chalk.dim(`  Output: ${outputPath} (${options.width}x${options.height})`));
-        console.log(chalk.dim(`  Strategy: ${strategy}`));
-        console.log(chalk.dim(`  Aspect ratio: ${metadata.width}:${metadata.height} → ${options.width}:${options.height}`));
-        console.log(chalk.dim(`  File size: ${(outputStats.size / 1024).toFixed(2)}KB`));
+            spinner.succeed(chalk.green(`✓ ${fileName} smart cropped`));
+            successCount++;
+          } catch (error) {
+            spinner.fail(chalk.red(`✗ Failed: ${path.basename(inputFile)}`));
+            if (options.verbose && error instanceof Error) {
+              console.log(chalk.red(`    Error: ${error.message}`));
+            }
+            failCount++;
+          }
+        }
+
+        console.log(chalk.bold('\nSummary:'));
+        console.log(chalk.green(`  ✓ Success: ${successCount}`));
+        if (failCount > 0) {
+          console.log(chalk.red(`  ✗ Failed: ${failCount}`));
+        }
+        console.log(chalk.dim(`  Output directory: ${outputDir}`));
 
       } catch (error) {
-        spinner.fail(chalk.red('Smart crop failed'));
+        spinner.fail(chalk.red('Processing failed'));
         if (options.verbose) {
           console.error(chalk.red('Error details:'), error);
         } else {

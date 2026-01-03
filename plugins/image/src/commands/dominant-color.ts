@@ -1,7 +1,9 @@
 import type { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
+import path from 'path';
 import fs from 'fs';
+import { validatePaths, MediaExtensions } from '@mediaproc/cli';
 import { createSharpInstance } from '../utils/sharp.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
 
@@ -9,6 +11,7 @@ interface DominantColorOptions {
   input: string;
   count?: number;
   export?: string;
+  dryRun?: boolean;
   verbose?: boolean;
   help?: boolean;
 }
@@ -19,6 +22,7 @@ export function dominantColorCommand(imageCmd: Command): void {
     .description('Extract dominant colors from an image')
     .option('-c, --count <number>', 'Number of dominant colors to extract (default: 5)', parseInt, 5)
     .option('--export <path>', 'Export color palette to JSON file')
+    .option('--dry-run', 'Show what would be analyzed without executing')
     .option('-v, --verbose', 'Show detailed color information')
     .option('--help', 'Display help for dominant-color command')
     .action(async (input: string, options: DominantColorOptions) => {
@@ -71,32 +75,75 @@ export function dominantColorCommand(imageCmd: Command): void {
         process.exit(0);
       }
 
-      const spinner = ora('Analyzing colors...').start();
+      const spinner = ora('Validating input...').start();
 
       try {
-        if (!fs.existsSync(input)) {
-          spinner.fail(chalk.red(`Input file not found: ${input}`));
+        // Validate input paths
+        const { inputFiles, errors } = validatePaths(input, undefined, {
+          allowedExtensions: MediaExtensions.IMAGE,
+          recursive: true,
+        });
+
+        if (errors.length > 0) {
+          spinner.fail(chalk.red('Validation failed:'));
+          errors.forEach(err => console.log(chalk.red(`  ✗ ${err}`)));
           process.exit(1);
         }
 
+        if (inputFiles.length === 0) {
+          spinner.fail(chalk.red('No valid image files found'));
+          process.exit(1);
+        }
+
+        const totalFiles = inputFiles.length;
+
+        // Dry-run mode
+        if (options.dryRun) {
+          spinner.info(chalk.blue('🔍 Dry run - files that would be analyzed:'));
+          inputFiles.forEach((file: string, index: number) => {
+            console.log(chalk.dim(`  [${index + 1}/${totalFiles}] ${file}`));
+          });
+          console.log(chalk.dim(`\n  Total files: ${totalFiles}`));
+          process.exit(0);
+        }
+
+        spinner.succeed(chalk.green(`Found ${totalFiles} file${totalFiles > 1 ? 's' : ''} to analyze`));
+
+        let successCount = 0;
+        let failCount = 0;
+
         const count = Math.min(Math.max(options.count || 5, 1), 10);
 
-        // Get image stats which includes dominant color
-        const sharpInstance = createSharpInstance(input);
-        const metadata = await sharpInstance.metadata();
-        
-        // Resize for faster processing
-        const smallImage = await sharpInstance
-          .resize(100, 100, { fit: 'inside' })
-          .raw()
-          .toBuffer({ resolveWithObject: true });
+        // Process each file
+        for (let i = 0; i < inputFiles.length; i++) {
+          const inputFile = inputFiles[i];
+          const fileNum = `[${i + 1}/${totalFiles}]`;
 
-        const { data, info } = smallImage;
-        const pixels = info.width * info.height;
-        const channels = info.channels;
+          if (totalFiles > 1) {
+            console.log(chalk.bold.cyan(`\n${'='.repeat(80)}`));
+            console.log(chalk.bold.cyan(`${fileNum} ${path.basename(inputFile)}`));
+            console.log(chalk.bold.cyan('='.repeat(80)));
+          }
 
-        // Color histogram approach
-        const colorMap = new Map<string, number>();
+          const fileSpinner = ora(`${fileNum} Analyzing colors...`).start();
+
+          try {
+            // Get image stats which includes dominant color
+            const sharpInstance = createSharpInstance(inputFile);
+            const metadata = await sharpInstance.metadata();
+            
+            // Resize for faster processing
+            const smallImage = await sharpInstance
+              .resize(100, 100, { fit: 'inside' })
+              .raw()
+              .toBuffer({ resolveWithObject: true });
+
+            const { data, info } = smallImage;
+            const pixels = info.width * info.height;
+            const channels = info.channels;
+
+            // Color histogram approach
+            const colorMap = new Map<string, number>();
 
         for (let i = 0; i < data.length; i += channels) {
           const r = data[i];
@@ -146,53 +193,83 @@ export function dominantColorCommand(imageCmd: Command): void {
             }
           }
           
-          return {
-            hex,
-            rgb: { r, g, b },
-            hsl: {
-              h: Math.round(h * 360),
-              s: Math.round(s * 100),
-              l: Math.round(l * 100)
-            },
-            percentage: parseFloat(percentage)
-          };
-        });
+            return {
+              hex,
+              rgb: { r, g, b },
+              hsl: {
+                h: Math.round(h * 360),
+                s: Math.round(s * 100),
+                l: Math.round(l * 100)
+              },
+              percentage: parseFloat(percentage)
+            };
+          });
 
-        spinner.succeed(chalk.green('✓ Color analysis complete!\n'));
+            fileSpinner.succeed(chalk.green(`${fileNum} Color analysis complete!\n`));
 
-        console.log(chalk.bold.cyan(`🎨 Top ${dominantColors.length} Dominant Colors:\n`));
+            console.log(chalk.bold.cyan(`🎨 Top ${dominantColors.length} Dominant Colors:\n`));
 
-        dominantColors.forEach((color, index) => {
-          const colorPreview = chalk.bgHex(color.hex)('    ');
-          console.log(colorPreview + ' ' + chalk.bold(color.hex) + chalk.dim(` (${color.percentage}%)`));
-          
-          if (options.verbose) {
-            console.log(chalk.dim(`   RGB: (${color.rgb.r}, ${color.rgb.g}, ${color.rgb.b})`));
-            console.log(chalk.dim(`   HSL: (${color.hsl.h}°, ${color.hsl.s}%, ${color.hsl.l}%)`));
+            dominantColors.forEach((color, index) => {
+              const colorPreview = chalk.bgHex(color.hex)('    ');
+              console.log(colorPreview + ' ' + chalk.bold(color.hex) + chalk.dim(` (${color.percentage}%)`));
+              
+              if (options.verbose) {
+                console.log(chalk.dim(`   RGB: (${color.rgb.r}, ${color.rgb.g}, ${color.rgb.b})`));
+                console.log(chalk.dim(`   HSL: (${color.hsl.h}°, ${color.hsl.s}%, ${color.hsl.l}%)`));
+              }
+              
+              if (index < dominantColors.length - 1) {
+                console.log('');
+              }
+            });
+
+            // Export to JSON (only for first file or if single file)
+            if (options.export && (totalFiles === 1 || i === 0)) {
+              const exportData = {
+                source: inputFile,
+                imageSize: {
+                  width: metadata.width,
+                  height: metadata.height
+                },
+                colors: dominantColors
+              };
+              
+              const exportPath = totalFiles > 1 
+                ? options.export.replace(/(\.json)?$/, `-${i + 1}.json`)
+                : options.export;
+              
+              fs.writeFileSync(exportPath, JSON.stringify(exportData, null, 2));
+              console.log(chalk.dim(`\n✓ Palette exported to: ${exportPath}`));
+            }
+
+            successCount++;
+          } catch (error) {
+            failCount++;
+            fileSpinner.fail(chalk.red(`${fileNum} Failed to analyze colors`));
+            if (options.verbose) {
+              console.error(chalk.red('Error details:'), error);
+            } else {
+              console.error(chalk.red((error as Error).message));
+            }
           }
-          
-          if (index < dominantColors.length - 1) {
-            console.log('');
-          }
-        });
+        }
 
-        // Export to JSON
-        if (options.export) {
-          const exportData = {
-            source: input,
-            imageSize: {
-              width: metadata.width,
-              height: metadata.height
-            },
-            colors: dominantColors
-          };
-          
-          fs.writeFileSync(options.export, JSON.stringify(exportData, null, 2));
-          console.log(chalk.dim(`\n✓ Palette exported to: ${options.export}`));
+        // Summary
+        if (totalFiles > 1) {
+          console.log(chalk.bold.cyan(`\n${'='.repeat(80)}`));
+          console.log(chalk.bold.green('\n✓ Analysis Summary:'));
+          console.log(chalk.dim(`  Analyzed: ${successCount}/${totalFiles}`));
+          if (failCount > 0) {
+            console.log(chalk.dim(`  Failed: ${failCount}`));
+          }
+        }
+
+        if (failCount > 0 && failCount === totalFiles) {
+          process.exit(1);
         }
 
       } catch (error) {
-        spinner.fail(chalk.red('Failed to analyze colors'));
+        spinner.fail(chalk.red('Failed to validate input'));
         if (options.verbose) {
           console.error(chalk.red('Error details:'), error);
         } else {

@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import path from 'path';
-import fs from 'fs';
+import { validatePaths, resolveOutputPaths, MediaExtensions } from '@mediaproc/cli';
 import { createSharpInstance } from '../utils/sharp.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
 
@@ -85,77 +85,107 @@ export function autoEnhanceCommand(imageCmd: Command): void {
         process.exit(0);
       }
 
-      const spinner = ora('Analyzing and enhancing...').start();
+      const spinner = ora('Validating inputs...').start();
 
       try {
-        if (!fs.existsSync(input)) {
-          spinner.fail(chalk.red(`Input file not found: ${input}`));
+        const { inputFiles, outputDir, errors } = validatePaths(input, options.output, {
+          allowedExtensions: MediaExtensions.IMAGE,
+          recursive: true,
+        });
+
+        if (errors.length > 0) {
+          spinner.fail(chalk.red('Validation failed:'));
+          errors.forEach(err => console.log(chalk.red(`  ✗ ${err}`)));
           process.exit(1);
         }
 
+        if (inputFiles.length === 0) {
+          spinner.fail(chalk.red('No valid image files found'));
+          process.exit(1);
+        }
+
+        const outputPaths = resolveOutputPaths(inputFiles, outputDir, {
+          suffix: '-enhanced',
+          preserveStructure: inputFiles.length > 1,
+        });
+
+        spinner.succeed(chalk.green(`Found ${inputFiles.length} image(s) to process`));
+
         const level = ['low', 'medium', 'high'].includes(options.level || 'medium') ? options.level : 'medium';
-        
-        const inputPath = path.parse(input);
-        const outputPath = options.output || path.join(inputPath.dir, `${inputPath.name}-enhanced${inputPath.ext}`);
 
         if (options.verbose) {
-          spinner.info(chalk.blue('Configuration:'));
-          console.log(chalk.dim(`  Input: ${input}`));
-          console.log(chalk.dim(`  Output: ${outputPath}`));
+          console.log(chalk.blue('\nConfiguration:'));
           console.log(chalk.dim(`  Enhancement level: ${level}`));
-          spinner.start('Processing...');
         }
 
         if (options.dryRun) {
-          spinner.info(chalk.yellow('Dry run mode - no changes will be made'));
-          console.log(chalk.green('✓ Would apply auto-enhancement:'));
-          console.log(chalk.dim(`  Input: ${input}`));
-          console.log(chalk.dim(`  Level: ${level}`));
+          console.log(chalk.yellow('\nDry run mode - no changes will be made\n'));
+          console.log(chalk.green(`Would process ${inputFiles.length} image(s):`));
+          inputFiles.forEach((inputFile, index) => {
+            const outputPath = outputPaths.get(inputFile);
+            console.log(chalk.dim(`  ${index + 1}. ${path.basename(inputFile)} → ${path.basename(outputPath!)}`));
+          });
           return;
         }
 
-        const metadata = await createSharpInstance(input).metadata();
-        let pipeline = createSharpInstance(input);
+        let successCount = 0;
+        let failCount = 0;
 
-        // Apply enhancements based on level
-        switch (level) {
-          case 'low':
-            // Subtle enhancement
-            pipeline = pipeline
-              .normalize()  // Histogram normalization
-              .sharpen({ sigma: 0.5 });  // Light sharpen
-            break;
+        for (const [index, inputFile] of inputFiles.entries()) {
+          const outputPath = outputPaths.get(inputFile)!;
+          const fileName = path.basename(inputFile);
+          
+          spinner.start(`Processing ${index + 1}/${inputFiles.length}: ${fileName}...`);
 
-          case 'medium':
-            // Balanced enhancement (default)
-            pipeline = pipeline
-              .normalize()  // Histogram normalization
-              .modulate({ brightness: 1.05, saturation: 1.1 })  // Slight boost
-              .sharpen({ sigma: 1.0 });  // Moderate sharpen
-            break;
+          try {
+            let pipeline = createSharpInstance(inputFile);
 
-          case 'high':
-            // Aggressive enhancement
-            pipeline = pipeline
-              .normalize()  // Histogram normalization
-              .clahe({ width: 3, height: 3, maxSlope: 3 })  // Local contrast
-              .modulate({ brightness: 1.1, saturation: 1.2, hue: 0 })  // Boost colors
-              .sharpen({ sigma: 1.5 });  // Strong sharpen
-            break;
+            // Apply enhancements based on level
+            switch (level) {
+              case 'low':
+                // Subtle enhancement
+                pipeline = pipeline
+                  .normalize()  // Histogram normalization
+                  .sharpen({ sigma: 0.5 });  // Light sharpen
+                break;
+
+              case 'medium':
+                // Balanced enhancement (default)
+                pipeline = pipeline
+                  .normalize()  // Histogram normalization
+                  .modulate({ brightness: 1.05, saturation: 1.1 })  // Slight boost
+                  .sharpen({ sigma: 1.0 });  // Moderate sharpen
+                break;
+
+              case 'high':
+                // Aggressive enhancement
+                pipeline = pipeline
+                  .normalize()  // Histogram normalization
+                  .clahe({ width: 3, height: 3, maxSlope: 3 })  // Local contrast
+                  .modulate({ brightness: 1.1, saturation: 1.2, hue: 0 })  // Boost colors
+                  .sharpen({ sigma: 1.5 });  // Strong sharpen
+                break;
+            }
+
+            await pipeline.toFile(outputPath);
+            
+            spinner.succeed(chalk.green(`✓ ${fileName} processed`));
+            successCount++;
+          } catch (error) {
+            spinner.fail(chalk.red(`✗ Failed: ${fileName}`));
+            if (options.verbose && error instanceof Error) {
+              console.log(chalk.red(`    Error: ${error.message}`));
+            }
+            failCount++;
+          }
         }
 
-        await pipeline.toFile(outputPath);
-
-        const inputStats = fs.statSync(input);
-        const outputStats = fs.statSync(outputPath);
-
-        spinner.succeed(chalk.green('✓ Auto-enhancement complete!'));
-        console.log(chalk.dim(`  Input: ${input}`));
-        console.log(chalk.dim(`  Output: ${outputPath}`));
-        console.log(chalk.dim(`  Size: ${metadata.width}x${metadata.height}`));
-        console.log(chalk.dim(`  Level: ${level}`));
-        console.log(chalk.dim(`  Applied: ${level === 'low' ? 'Normalize + Light sharpen' : level === 'medium' ? 'Normalize + Color boost + Sharpen' : 'Normalize + CLAHE + Color boost + Strong sharpen'}`));
-        console.log(chalk.dim(`  File size: ${(inputStats.size / 1024).toFixed(2)}KB → ${(outputStats.size / 1024).toFixed(2)}KB`));
+        console.log(chalk.bold('\nSummary:'));
+        console.log(chalk.green(`  ✓ Success: ${successCount}`));
+        if (failCount > 0) {
+          console.log(chalk.red(`  ✗ Failed: ${failCount}`));
+        }
+        console.log(chalk.dim(`  Output directory: ${outputDir}`));
 
       } catch (error) {
         spinner.fail(chalk.red('Auto-enhancement failed'));

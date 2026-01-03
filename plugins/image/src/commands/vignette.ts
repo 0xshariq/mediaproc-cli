@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import path from 'path';
-import fs from 'fs';
+import { validatePaths, resolveOutputPaths, MediaExtensions } from '@mediaproc/cli';
 import { createSharpInstance } from '../utils/sharp.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
 
@@ -75,78 +75,100 @@ export function vignetteCommand(imageCmd: Command): void {
         process.exit(0);
       }
 
-      const spinner = ora('Adding vignette...').start();
+      const spinner = ora('Validating inputs...').start();
 
       try {
-        if (!fs.existsSync(input)) {
-          spinner.fail(chalk.red(`Input file not found: ${input}`));
+        const { inputFiles, outputDir, errors } = validatePaths(input, options.output, {
+          allowedExtensions: MediaExtensions.IMAGE,
+          recursive: true,
+        });
+
+        if (errors.length > 0) {
+          spinner.fail(chalk.red('Validation failed:'));
+          errors.forEach(err => console.log(chalk.red(`  ✗ ${err}`)));
           process.exit(1);
         }
 
+        if (inputFiles.length === 0) {
+          spinner.fail(chalk.red('No valid image files found'));
+          process.exit(1);
+        }
+
+        const outputPaths = resolveOutputPaths(inputFiles, outputDir, {
+          suffix: '-vignette',
+          preserveStructure: inputFiles.length > 1,
+        });
+
+        spinner.succeed(chalk.green(`Found ${inputFiles.length} image(s) to process`));
+
         const strength = Math.max(0, Math.min(100, options.strength || 50)) / 100;
-        
-        const inputPath = path.parse(input);
-        const outputPath = options.output || path.join(inputPath.dir, `${inputPath.name}-vignette${inputPath.ext}`);
 
         if (options.verbose) {
-          spinner.info(chalk.blue('Configuration:'));
-          console.log(chalk.dim(`  Input: ${input}`));
-          console.log(chalk.dim(`  Output: ${outputPath}`));
+          console.log(chalk.blue('\nConfiguration:'));
           console.log(chalk.dim(`  Strength: ${(strength * 100).toFixed(0)}%`));
-          spinner.start('Processing...');
         }
 
         if (options.dryRun) {
-          spinner.info(chalk.yellow('Dry run mode - no changes will be made'));
-          console.log(chalk.green('✓ Would add vignette:'));
-          console.log(chalk.dim(`  Input: ${input}`));
-          console.log(chalk.dim(`  Strength: ${(strength * 100).toFixed(0)}%`));
+          console.log(chalk.yellow('\nDry run mode - no changes will be made\n'));
+          console.log(chalk.green(`Would process ${inputFiles.length} image(s):`));
+          inputFiles.forEach((inputFile, index) => {
+            const outputPath = outputPaths.get(inputFile);
+            console.log(chalk.dim(`  ${index + 1}. ${path.basename(inputFile)} → ${path.basename(outputPath!)}`));
+          });
           return;
         }
 
-        const metadata = await createSharpInstance(input).metadata();
-        const width = metadata.width!;
-        const height = metadata.height!;
+        let successCount = 0;
+        let failCount = 0;
 
-        // Create radial gradient for vignette
-        const centerX = width / 2;
-        const centerY = height / 2;
-        const maxRadius = Math.sqrt(centerX * centerX + centerY * centerY);
+        for (const [index, inputFile] of inputFiles.entries()) {
+          const outputPath = outputPaths.get(inputFile)!;
+          const fileName = path.basename(inputFile);
+          
+          spinner.start(`Processing ${index + 1}/${inputFiles.length}: ${fileName}...`);
 
-        if (options.verbose) {
-          console.log(chalk.dim(`  Center: (${centerX}, ${centerY})`));
-          console.log(chalk.dim(`  Max radius: ${maxRadius.toFixed(2)}px`));
-          console.log(chalk.dim(`  Strength: ${strength}`));
+          try {
+            const metadata = await createSharpInstance(inputFile).metadata();
+            const width = metadata.width!;
+            const height = metadata.height!;
+
+            // Create vignette overlay using SVG
+            const vignetteOverlay = Buffer.from(`
+              <svg width="${width}" height="${height}">
+                <defs>
+                  <radialGradient id="vignette" cx="50%" cy="50%" r="70%">
+                    <stop offset="40%" style="stop-color:white;stop-opacity:0" />
+                    <stop offset="100%" style="stop-color:black;stop-opacity:${strength}" />
+                  </radialGradient>
+                </defs>
+                <rect width="${width}" height="${height}" fill="url(#vignette)" />
+              </svg>
+            `);
+
+            await createSharpInstance(inputFile)
+              .composite([{
+                input: vignetteOverlay,
+                blend: 'multiply'
+              }])
+              .toFile(outputPath);
+            
+            spinner.succeed(chalk.green(`✓ ${fileName} processed`));
+            successCount++;
+          } catch (error) {
+            spinner.fail(chalk.red(`✗ Failed: ${fileName}`));
+            if (options.verbose && error instanceof Error) {
+              console.log(chalk.red(`    Error: ${error.message}`));
+            }
+            failCount++;
+          }
         }
 
-        // Create vignette overlay using SVG
-        const vignetteOverlay = Buffer.from(`
-          <svg width="${width}" height="${height}">
-            <defs>
-              <radialGradient id="vignette" cx="50%" cy="50%" r="70%">
-                <stop offset="40%" style="stop-color:white;stop-opacity:0" />
-                <stop offset="100%" style="stop-color:black;stop-opacity:${strength}" />
-              </radialGradient>
-            </defs>
-            <rect width="${width}" height="${height}" fill="url(#vignette)" />
-          </svg>
-        `);
-
-        await createSharpInstance(input)
-          .composite([{
-            input: vignetteOverlay,
-            blend: 'multiply'
-          }])
-          .toFile(outputPath);
-
-        const outputStats = fs.statSync(outputPath);
-
-        spinner.succeed(chalk.green('✓ Vignette added successfully!'));
-        console.log(chalk.dim(`  Input: ${input}`));
-        console.log(chalk.dim(`  Output: ${outputPath}`));
-        console.log(chalk.dim(`  Size: ${width}x${height}`));
-        console.log(chalk.dim(`  Strength: ${(strength * 100).toFixed(0)}%`));
-        console.log(chalk.dim(`  File size: ${(outputStats.size / 1024).toFixed(2)}KB`));
+        console.log(chalk.bold('\nSummary:'));
+        console.log(chalk.green(`  ✓ Success: ${successCount}`));
+        if (failCount > 0) {
+          console.log(chalk.red(`  ✗ Failed: ${failCount}`));
+        }
+        console.log(chalk.dim(`  Output directory: ${outputDir}`));
 
       } catch (error) {
         spinner.fail(chalk.red('Failed to add vignette'));

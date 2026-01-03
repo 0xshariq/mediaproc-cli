@@ -2,7 +2,8 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import path from 'path';
-import fs from 'fs';
+import * as fs from 'fs';
+import { validatePaths, MediaExtensions } from '@mediaproc/cli';
 import { createSharpInstance } from '../utils/sharp.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
 
@@ -96,10 +97,25 @@ export function splitCommand(imageCmd: Command): void {
       const spinner = ora('Analyzing image...').start();
 
       try {
-        if (!fs.existsSync(input)) {
-          spinner.fail(chalk.red(`Input file not found: ${input}`));
+        // Validate input paths
+        const { inputFiles, outputDir: baseOutputDir, errors } = validatePaths(input, options.output || './tiles', {
+          allowedExtensions: MediaExtensions.IMAGE,
+          recursive: true,
+        });
+
+        if (errors.length > 0) {
+          spinner.fail(chalk.red('Validation failed:'));
+          errors.forEach(err => console.log(chalk.red(`  ✗ ${err}`)));
           process.exit(1);
         }
+
+        if (inputFiles.length === 0) {
+          spinner.fail(chalk.red('No valid image files found'));
+          process.exit(1);
+        }
+
+        let successCount = 0;
+        let failCount = 0;
 
         // Parse grid dimensions
         let rows: number;
@@ -121,78 +137,100 @@ export function splitCommand(imageCmd: Command): void {
           process.exit(1);
         }
 
-        const metadata = await createSharpInstance(input).metadata();
-        
-        if (!metadata.width || !metadata.height) {
-          spinner.fail(chalk.red('Unable to read image dimensions'));
-          process.exit(1);
-        }
-
-        const tileWidth = Math.floor(metadata.width / columns);
-        const tileHeight = Math.floor(metadata.height / rows);
         const totalTiles = rows * columns;
-
-        const inputPath = path.parse(input);
-        const outputDir = options.output || './tiles';
 
         if (options.verbose) {
           spinner.info(chalk.blue('Configuration:'));
-          console.log(chalk.dim(`  Input: ${input} (${metadata.width}x${metadata.height})`));
-          console.log(chalk.dim(`  Grid: ${rows}x${columns} (${totalTiles} tiles)`));
-          console.log(chalk.dim(`  Tile size: ${tileWidth}x${tileHeight}`));
-          console.log(chalk.dim(`  Output: ${outputDir}/`));
+          console.log(chalk.dim(`  Found ${inputFiles.length} file(s)`));
+          console.log(chalk.dim(`  Grid: ${rows}x${columns} (${totalTiles} tiles per image)`));
+          console.log(chalk.dim(`  Output directory: ${baseOutputDir}`));
           spinner.start('Processing...');
         }
 
         if (options.dryRun) {
           spinner.info(chalk.yellow('Dry run mode - no changes will be made'));
-          console.log(chalk.green('✓ Would split image:'));
-          console.log(chalk.dim(`  Into: ${rows}x${columns} grid (${totalTiles} tiles)`));
-          console.log(chalk.dim(`  Each tile: ${tileWidth}x${tileHeight}`));
-          console.log(chalk.dim(`  Output: ${outputDir}/tile_*_*.${inputPath.ext}`));
+          console.log(chalk.green(`✓ Would split ${inputFiles.length} file(s):`));
+          inputFiles.forEach(f => console.log(chalk.dim(`  - ${f}`)));
+          console.log(chalk.dim(`  Into: ${rows}x${columns} grid (${totalTiles} tiles each)`));
           return;
         }
 
         // Create output directory
-        if (!fs.existsSync(outputDir)) {
-          fs.mkdirSync(outputDir, { recursive: true });
+        if (!fs.existsSync(baseOutputDir)) {
+          fs.mkdirSync(baseOutputDir, { recursive: true });
         }
 
-        spinner.text = 'Splitting image into tiles...';
+        // Process all files
+        for (const inputFile of inputFiles) {
+          try {
+            const fileName = path.basename(inputFile);
+            const inputPath = path.parse(inputFile);
+            
+            const metadata = await createSharpInstance(inputFile).metadata();
+            
+            if (!metadata.width || !metadata.height) {
+              spinner.fail(chalk.red(`Unable to read dimensions: ${fileName}`));
+              failCount++;
+              continue;
+            }
 
-        // Split image into tiles
-        const imageBuffer = await createSharpInstance(input).toBuffer();
-        
-        for (let row = 0; row < rows; row++) {
-          for (let col = 0; col < columns; col++) {
-            const left = col * tileWidth;
-            const top = row * tileHeight;
+            const tileWidth = Math.floor(metadata.width / columns);
+            const tileHeight = Math.floor(metadata.height / rows);
+
+            spinner.text = `Splitting ${fileName}...`;
+
+            const imageBuffer = await createSharpInstance(inputFile).toBuffer();
             
-            const outputPath = path.join(outputDir, `tile_${row}_${col}${inputPath.ext}`);
+            // Create subdirectory for this file if multiple inputs
+            const fileOutputDir = inputFiles.length > 1 
+              ? path.join(baseOutputDir, inputPath.name)
+              : baseOutputDir;
             
-            await createSharpInstance(imageBuffer)
-              .extract({
-                left,
-                top,
-                width: tileWidth,
-                height: tileHeight
-              })
-              .toFile(outputPath);
+            if (!fs.existsSync(fileOutputDir)) {
+              fs.mkdirSync(fileOutputDir, { recursive: true });
+            }
             
-            spinner.text = `Creating tiles... ${((row * columns + col + 1) / totalTiles * 100).toFixed(0)}%`;
+            for (let row = 0; row < rows; row++) {
+              for (let col = 0; col < columns; col++) {
+                const left = col * tileWidth;
+                const top = row * tileHeight;
+                
+                const outputPath = path.join(fileOutputDir, `tile_${row}_${col}${inputPath.ext}`);
+                
+                await createSharpInstance(imageBuffer)
+                  .extract({
+                    left,
+                    top,
+                    width: tileWidth,
+                    height: tileHeight
+                  })
+                  .toFile(outputPath);
+                
+                spinner.text = `Splitting ${fileName}... ${((row * columns + col + 1) / totalTiles * 100).toFixed(0)}%`;
+              }
+            }
+
+            spinner.succeed(chalk.green(`✓ ${fileName} split into ${totalTiles} tiles`));
+            successCount++;
+          } catch (error) {
+            spinner.fail(chalk.red(`✗ Failed: ${path.basename(inputFile)}`));
+            if (options.verbose && error instanceof Error) {
+              console.log(chalk.red(`    Error: ${error.message}`));
+            }
+            failCount++;
           }
         }
 
-        spinner.succeed(chalk.green('✓ Image split successfully!'));
-        console.log(chalk.dim(`  Input: ${input} (${metadata.width}x${metadata.height})`));
-        console.log(chalk.dim(`  Grid: ${rows}x${columns}`));
-        console.log(chalk.dim(`  Total tiles: ${totalTiles}`));
-        console.log(chalk.dim(`  Tile size: ${tileWidth}x${tileHeight}`));
-        console.log(chalk.dim(`  Output: ${outputDir}/`));
-        console.log(chalk.dim(`  Files: tile_0_0${inputPath.ext} ... tile_${rows-1}_${columns-1}${inputPath.ext}`));
+        console.log(chalk.bold('\nSummary:'));
+        console.log(chalk.green(`  ✓ Success: ${successCount}`));
+        if (failCount > 0) {
+          console.log(chalk.red(`  ✗ Failed: ${failCount}`));
+        }
+        console.log(chalk.dim(`  Output directory: ${baseOutputDir}`));
+        console.log(chalk.dim(`  Tiles per image: ${totalTiles} (${rows}x${columns})`));
 
       } catch (error) {
-        spinner.fail(chalk.red('Failed to split image'));
+        spinner.fail(chalk.red('Processing failed'));
         if (options.verbose) {
           console.error(chalk.red('Error details:'), error);
         } else {

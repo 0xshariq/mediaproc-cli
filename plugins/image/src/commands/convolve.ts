@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import path from 'path';
-import fs from 'fs';
+import { validatePaths, resolveOutputPaths, MediaExtensions } from '@mediaproc/cli';
 import type { ConvolveOptions } from '../types.js';
 import { createSharpInstance } from '../utils/sharp.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
@@ -92,14 +92,9 @@ export function convolveCommand(imageCmd: Command): void {
         process.exit(0);
       }
 
-      const spinner = ora('Applying convolution...').start();
+      const spinner = ora('Validating inputs...').start();
 
       try {
-        if (!fs.existsSync(input)) {
-          spinner.fail(chalk.red(`Input file not found: ${input}`));
-          process.exit(1);
-        }
-
         let kernel: number[][];
         let kernelName: string;
 
@@ -125,52 +120,87 @@ export function convolveCommand(imageCmd: Command): void {
           process.exit(1);
         }
 
-        const inputPath = path.parse(input);
-        const outputPath = options.output || path.join(inputPath.dir, `${inputPath.name}-${kernelName}${inputPath.ext}`);
+        const { inputFiles, outputDir, errors } = validatePaths(input, options.output, {
+          allowedExtensions: MediaExtensions.IMAGE,
+          recursive: true,
+        });
 
-        if (options.verbose) {
-          spinner.info(chalk.blue('Configuration:'));
-          console.log(chalk.dim(`  Input: ${input}`));
-          console.log(chalk.dim(`  Output: ${outputPath}`));
-          console.log(chalk.dim(`  Kernel: ${kernelName}`));
-          console.log(chalk.dim(`  Matrix: ${JSON.stringify(kernel)}`));
-          if (options.scale !== 1) console.log(chalk.dim(`  Scale: ${options.scale}`));
-          if (options.offset !== 0) console.log(chalk.dim(`  Offset: ${options.offset}`));
-          spinner.start('Processing...');
+        if (errors.length > 0) {
+          spinner.fail(chalk.red('Validation failed:'));
+          errors.forEach(err => console.log(chalk.red(`  ✗ ${err}`)));
+          process.exit(1);
         }
 
-        if (options.dryRun) {
-          spinner.info(chalk.yellow('Dry run mode - no changes will be made'));
-          console.log(chalk.green('✓ Would apply convolution:'));
-          console.log(chalk.dim(`  Input: ${input}`));
-          console.log(chalk.dim(`  Kernel: ${kernelName}`));
-          return;
+        if (inputFiles.length === 0) {
+          spinner.fail(chalk.red('No valid image files found'));
+          process.exit(1);
         }
 
-        const metadata = await createSharpInstance(input).metadata();
+        const outputPaths = resolveOutputPaths(inputFiles, outputDir, {
+          suffix: `-${kernelName}`,
+          preserveStructure: inputFiles.length > 1,
+        });
 
-        // Flatten kernel for Sharp (expects 1D array)
+        spinner.succeed(chalk.green(`Found ${inputFiles.length} image(s) to process`));
+
         const flatKernel = kernel.flat();
         const kernelSize = Math.sqrt(flatKernel.length);
 
-        await createSharpInstance(input)
-          .convolve({
-            width: kernelSize,
-            height: kernelSize,
-            kernel: flatKernel,
-            scale: options.scale,
-            offset: options.offset
-          })
-          .toFile(outputPath);
+        if (options.verbose) {
+          console.log(chalk.blue('\nConfiguration:'));
+          console.log(chalk.dim(`  Kernel: ${kernelName} (${kernelSize}x${kernelSize})`));
+          console.log(chalk.dim(`  Matrix: ${JSON.stringify(kernel)}`));
+          if (options.scale !== 1) console.log(chalk.dim(`  Scale: ${options.scale}`));
+          if (options.offset !== 0) console.log(chalk.dim(`  Offset: ${options.offset}`));
+        }
 
-        const outputStats = fs.statSync(outputPath);
+        if (options.dryRun) {
+          console.log(chalk.yellow('\nDry run mode - no changes will be made\n'));
+          console.log(chalk.green(`Would process ${inputFiles.length} image(s):`));
+          inputFiles.forEach((inputFile, index) => {
+            const outputPath = outputPaths.get(inputFile);
+            console.log(chalk.dim(`  ${index + 1}. ${path.basename(inputFile)} → ${path.basename(outputPath!)}`));
+          });
+          return;
+        }
 
-        spinner.succeed(chalk.green('✓ Convolution applied successfully!'));
-        console.log(chalk.dim(`  Input: ${input}`));
-        console.log(chalk.dim(`  Output: ${outputPath}`));
-        console.log(chalk.dim(`  Size: ${metadata.width}x${metadata.height}`));
-        console.log(chalk.dim(`  Kernel: ${kernelName} (${kernelSize}x${kernelSize})`));
-        console.log(chalk.dim(`  File size: ${(outputStats.size / 1024).toFixed(2)}KB`));
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const [index, inputFile] of inputFiles.entries()) {
+          const outputPath = outputPaths.get(inputFile)!;
+          const fileName = path.basename(inputFile);
+          
+          spinner.start(`Processing ${index + 1}/${inputFiles.length}: ${fileName}...`);
+
+          try {
+            await createSharpInstance(inputFile)
+              .convolve({
+                width: kernelSize,
+                height: kernelSize,
+                kernel: flatKernel,
+                scale: options.scale,
+                offset: options.offset
+              })
+              .toFile(outputPath);
+            
+            spinner.succeed(chalk.green(`✓ ${fileName} processed`));
+            successCount++;
+          } catch (error) {
+            spinner.fail(chalk.red(`✗ Failed: ${fileName}`));
+            if (options.verbose && error instanceof Error) {
+              console.log(chalk.red(`    Error: ${error.message}`));
+            }
+            failCount++;
+          }
+        }
+
+        console.log(chalk.bold('\nSummary:'));
+        console.log(chalk.green(`  ✓ Success: ${successCount}`));
+        if (failCount > 0) {
+          console.log(chalk.red(`  ✗ Failed: ${failCount}`));
+        }
+        console.log(chalk.dim(`  Output directory: ${outputDir}`));
 
       } catch (error) {
         spinner.fail(chalk.red('Failed to apply convolution'));

@@ -2,10 +2,11 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import path from 'path';
-import fs from 'fs';
 import type { ConvertOptions } from '../types.js';
 import { createSharpInstance } from '../utils/sharp.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
+// Dependency injection: Import global path validator from core
+import { validatePaths, resolveOutputPaths, MediaExtensions } from '@mediaproc/cli';
 
 interface ConvertOptionsExtended extends ConvertOptions {
   help?: boolean;
@@ -69,73 +70,127 @@ export function convertCommand(imageCmd: Command): void {
         process.exit(0);
       }
 
-      const spinner = ora('Processing image...').start();
+      const spinner = ora('Validating inputs...').start();
 
       try {
-        if (!fs.existsSync(input)) {
-          spinner.fail(chalk.red(`Input file not found: ${input}`));
-          process.exit(1);
-        }
-
         const validFormats = ['jpg', 'jpeg', 'png', 'webp', 'avif', 'tiff', 'gif'];
         if (!validFormats.includes(options.format)) {
           spinner.fail(chalk.red(`Invalid format. Supported: ${validFormats.join(', ')}`));
           process.exit(1);
         }
 
-        const inputPath = path.parse(input);
-        const outputPath = options.output || path.join(process.cwd(), `${inputPath.name}.${options.format}`);
+        // Use global path validator (dependency injection)
+        const { inputFiles, outputDir, errors } = validatePaths(input, options.output, {
+          allowedExtensions: MediaExtensions.IMAGE,
+          recursive: true,
+        });
 
-        if (options.verbose) {
-          spinner.info(chalk.blue('Configuration:'));
-          console.log(chalk.dim(`  Input: ${input}`));
-          console.log(chalk.dim(`  Output: ${outputPath}`));
-          console.log(chalk.dim(`  Format: ${options.format}`));
-          console.log(chalk.dim(`  Quality: ${options.quality || 90}`));
-          spinner.start('Processing...');
+        // Check for validation errors
+        if (errors.length > 0) {
+          spinner.fail(chalk.red('Validation failed:'));
+          errors.forEach(err => console.log(chalk.red(`  ✗ ${err}`)));
+          process.exit(1);
         }
 
+        if (inputFiles.length === 0) {
+          spinner.fail(chalk.red('No valid image files found'));
+          process.exit(1);
+        }
+
+        // Resolve output paths for all input files
+        const outputPaths = resolveOutputPaths(inputFiles, outputDir, {
+          newExtension: `.${options.format}`,
+          preserveStructure: inputFiles.length > 1,
+        });
+
+        spinner.succeed(chalk.green(`Found ${inputFiles.length} image(s) to process`));
+
+        if (options.verbose) {
+          console.log(chalk.blue('\nConfiguration:'));
+          console.log(chalk.dim(`  Format: ${options.format.toUpperCase()}`));
+          console.log(chalk.dim(`  Quality: ${options.quality || 90}`));
+          if (options.compression) {
+            console.log(chalk.dim(`  Compression: ${options.compression}`));
+          }
+          if (options.progressive) {
+            console.log(chalk.dim(`  Progressive: enabled`));
+          }
+        }
+
+        // Dry run mode
         if (options.dryRun) {
-          spinner.info(chalk.yellow('Dry run mode - no changes will be made'));
-          console.log(chalk.green('✓ Would convert image:'));
-          console.log(chalk.dim(`  From: ${input}`));
-          console.log(chalk.dim(`  To: ${outputPath}`));
-          console.log(chalk.dim(`  Format: ${options.format}`));
+          console.log(chalk.yellow('\nDry run mode - no changes will be made\n'));
+          console.log(chalk.green(`Would convert ${inputFiles.length} image(s) to ${options.format.toUpperCase()}:`));
+          inputFiles.forEach((inputFile, index) => {
+            const outputPath = outputPaths.get(inputFile);
+            console.log(chalk.dim(`  ${index + 1}. ${path.basename(inputFile)} → ${path.basename(outputPath!)}`));
+          });
           return;
         }
 
-        const metadata = await createSharpInstance(input).metadata();
-        let pipeline = createSharpInstance(input);
+        // Process each input file
+        let successCount = 0;
+        let failCount = 0;
 
-        // Apply format-specific options
-        if (options.format === 'jpg' || options.format === 'jpeg') {
-          pipeline.jpeg({ quality: options.quality || 90, progressive: options.progressive || false });
-        } else if (options.format === 'png') {
-          pipeline.png({ quality: options.quality || 90, compressionLevel: options.compression || 9, progressive: options.progressive || false });
-        } else if (options.format === 'webp') {
-          pipeline.webp({ quality: options.quality || 90 });
-        } else if (options.format === 'avif') {
-          pipeline.avif({ quality: options.quality || 90 });
-        } else if (options.format === 'tiff') {
-          pipeline.tiff({ quality: options.quality || 90 });
-        } else if (options.format === 'gif') {
-          pipeline.gif();
+        for (const [index, inputFile] of inputFiles.entries()) {
+          const outputPath = outputPaths.get(inputFile)!;
+          const fileName = path.basename(inputFile);
+          
+          spinner.start(`Processing ${index + 1}/${inputFiles.length}: ${fileName}...`);
+
+          try {
+            const metadata = await createSharpInstance(inputFile).metadata();
+            let pipeline = createSharpInstance(inputFile);
+
+            // Apply format-specific options
+            if (options.format === 'jpg' || options.format === 'jpeg') {
+              pipeline.jpeg({ quality: options.quality || 90, progressive: options.progressive || false });
+            } else if (options.format === 'png') {
+              pipeline.png({ quality: options.quality || 90, compressionLevel: options.compression || 9, progressive: options.progressive || false });
+            } else if (options.format === 'webp') {
+              pipeline.webp({ quality: options.quality || 90 });
+            } else if (options.format === 'avif') {
+              pipeline.avif({ quality: options.quality || 90 });
+            } else if (options.format === 'tiff') {
+              pipeline.tiff({ quality: options.quality || 90 });
+            } else if (options.format === 'gif') {
+              pipeline.gif();
+            }
+
+            await pipeline.toFile(outputPath);
+
+            spinner.succeed(chalk.green(`✓ ${fileName} converted to ${options.format.toUpperCase()}`));
+            
+            if (options.verbose) {
+              console.log(chalk.dim(`    Original format: ${metadata.format?.toUpperCase()}`));
+              console.log(chalk.dim(`    Size: ${metadata.width}x${metadata.height}`));
+              console.log(chalk.dim(`    Saved to: ${outputPath}`));
+            }
+
+            successCount++;
+          } catch (error) {
+            spinner.fail(chalk.red(`✗ Failed to convert ${fileName}`));
+            if (options.verbose && error instanceof Error) {
+              console.log(chalk.red(`    Error: ${error.message}`));
+            }
+            failCount++;
+          }
         }
 
-        await pipeline.toFile(outputPath);
+        // Final summary
+        console.log(chalk.bold('\nConvert Summary:'));
+        console.log(chalk.green(`  ✓ Success: ${successCount}`));
+        if (failCount > 0) {
+          console.log(chalk.red(`  ✗ Failed: ${failCount}`));
+        }
+        console.log(chalk.dim(`  Output directory: ${outputDir}`));
+        console.log(chalk.dim(`  Target format: ${options.format.toUpperCase()}`));
 
-        const inputStats = fs.statSync(input);
-        const outputStats = fs.statSync(outputPath);
-        const sizeDiff = ((outputStats.size - inputStats.size) / inputStats.size * 100).toFixed(2);
-
-        spinner.succeed(chalk.green('✓ Image converted successfully!'));
-        console.log(chalk.dim(`  Input: ${input} (${metadata.format?.toUpperCase()})`));
-        console.log(chalk.dim(`  Output: ${outputPath} (${options.format.toUpperCase()})`));
-        console.log(chalk.dim(`  Size: ${metadata.width}x${metadata.height}`));
-        console.log(chalk.dim(`  File size: ${(inputStats.size / 1024).toFixed(2)}KB → ${(outputStats.size / 1024).toFixed(2)}KB (${sizeDiff > '0' ? '+' : ''}${sizeDiff}%)`));
+        console.log(chalk.dim(`  Output directory: ${outputDir}`));
+        console.log(chalk.dim(`  Target format: ${options.format.toUpperCase()}`));
 
       } catch (error) {
-        spinner.fail(chalk.red('Failed to convert image'));
+        spinner.fail(chalk.red('Failed to convert images'));
         if (options.verbose) {
           console.error(chalk.red('Error details:'), error);
         } else {

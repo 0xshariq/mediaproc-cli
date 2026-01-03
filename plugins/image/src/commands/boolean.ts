@@ -2,7 +2,8 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import path from 'path';
-import fs from 'fs';
+import * as fs from 'fs';
+import { validatePaths, resolveOutputPaths, MediaExtensions } from '@mediaproc/cli';
 import type { ImageOptions } from '../types.js';
 import { createSharpInstance } from '../utils/sharp.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
@@ -98,11 +99,7 @@ export function booleanCommand(imageCmd: Command): void {
       const spinner = ora('Processing image...').start();
 
       try {
-        if (!fs.existsSync(input)) {
-          spinner.fail(chalk.red(`Input file not found: ${input}`));
-          process.exit(1);
-        }
-
+        // Validate operand file exists (single file)
         if (!options.operand || !fs.existsSync(options.operand)) {
           spinner.fail(chalk.red(`Operand image not found: ${options.operand}`));
           process.exit(1);
@@ -115,54 +112,90 @@ export function booleanCommand(imageCmd: Command): void {
           process.exit(1);
         }
 
-        const inputPath = path.parse(input);
-        const outputPath = options.output || path.join(process.cwd(), `${inputPath.name}-boolean${inputPath.ext}`);
+        // Validate input paths (can be multiple)
+        const { inputFiles, outputDir, errors } = validatePaths(input, options.output, {
+          allowedExtensions: MediaExtensions.IMAGE,
+          recursive: true,
+        });
+
+        if (errors.length > 0) {
+          spinner.fail(chalk.red('Validation failed:'));
+          errors.forEach(err => console.log(chalk.red(`  ✗ ${err}`)));
+          process.exit(1);
+        }
+
+        if (inputFiles.length === 0) {
+          spinner.fail(chalk.red('No valid image files found'));
+          process.exit(1);
+        }
+
+        const outputPaths = resolveOutputPaths(inputFiles, outputDir, {
+          suffix: '-boolean',
+          preserveStructure: inputFiles.length > 1,
+        });
+
+        let successCount = 0;
+        let failCount = 0;
 
         if (options.verbose) {
           spinner.info(chalk.blue('Configuration:'));
-          console.log(chalk.dim(`  Input: ${input}`));
+          console.log(chalk.dim(`  Found ${inputFiles.length} file(s)`));
           console.log(chalk.dim(`  Operand: ${options.operand}`));
           console.log(chalk.dim(`  Operation: ${operation.toUpperCase()}`));
-          console.log(chalk.dim(`  Output: ${outputPath}`));
+          console.log(chalk.dim(`  Output directory: ${outputDir}`));
           spinner.start('Processing...');
         }
 
         if (options.dryRun) {
           spinner.info(chalk.yellow('Dry run mode - no changes will be made'));
-          console.log(chalk.green('✓ Would perform boolean operation:'));
-          console.log(chalk.dim(`  Input: ${input}`));
+          console.log(chalk.green(`✓ Would perform ${operation.toUpperCase()} operation on ${inputFiles.length} file(s):`));
+          inputFiles.forEach(f => console.log(chalk.dim(`  - ${f}`)));
           console.log(chalk.dim(`  Operand: ${options.operand}`));
-          console.log(chalk.dim(`  Operation: ${operation.toUpperCase()}`));
           return;
         }
 
-        const metadata = await createSharpInstance(input).metadata();
+        // Preload operand buffer
         const operandBuffer = await createSharpInstance(options.operand).toBuffer();
-        
-        const pipeline = createSharpInstance(input).boolean(operandBuffer, operation as 'and' | 'or' | 'eor');
 
-        const outputExt = path.extname(outputPath).toLowerCase();
-        if (outputExt === '.jpg' || outputExt === '.jpeg') {
-          pipeline.jpeg({ quality: options.quality || 90 });
-        } else if (outputExt === '.png') {
-          pipeline.png({ quality: options.quality || 90 });
-        } else if (outputExt === '.webp') {
-          pipeline.webp({ quality: options.quality || 90 });
+        // Process all files
+        for (const inputFile of inputFiles) {
+          try {
+            const fileName = path.basename(inputFile);
+            const outputPath = outputPaths.get(inputFile)!;
+            
+            const pipeline = createSharpInstance(inputFile).boolean(operandBuffer, operation as 'and' | 'or' | 'eor');
+
+            const outputExt = path.extname(outputPath).toLowerCase();
+            if (outputExt === '.jpg' || outputExt === '.jpeg') {
+              pipeline.jpeg({ quality: options.quality || 90 });
+            } else if (outputExt === '.png') {
+              pipeline.png({ quality: options.quality || 90 });
+            } else if (outputExt === '.webp') {
+              pipeline.webp({ quality: options.quality || 90 });
+            }
+
+            await pipeline.toFile(outputPath);
+
+            spinner.succeed(chalk.green(`✓ ${fileName} boolean operation applied`));
+            successCount++;
+          } catch (error) {
+            spinner.fail(chalk.red(`✗ Failed: ${path.basename(inputFile)}`));
+            if (options.verbose && error instanceof Error) {
+              console.log(chalk.red(`    Error: ${error.message}`));
+            }
+            failCount++;
+          }
         }
 
-        await pipeline.toFile(outputPath);
+        console.log(chalk.bold('\nSummary:'));
+        console.log(chalk.green(`  ✓ Success: ${successCount}`));
+        if (failCount > 0) {
+          console.log(chalk.red(`  ✗ Failed: ${failCount}`));
+        }
+        console.log(chalk.dim(`  Output directory: ${outputDir}`));
 
-        const outputStats = fs.statSync(outputPath);
-
-        spinner.succeed(chalk.green('✓ Boolean operation applied successfully!'));
-        console.log(chalk.dim(`  Input: ${input}`));
-        console.log(chalk.dim(`  Operand: ${options.operand}`));
-        console.log(chalk.dim(`  Operation: ${operation.toUpperCase()}`));
-        console.log(chalk.dim(`  Output: ${outputPath}`));
-        console.log(chalk.dim(`  Size: ${metadata.width}x${metadata.height}`));
-        console.log(chalk.dim(`  File size: ${(outputStats.size / 1024).toFixed(2)} KB`));
       } catch (error) {
-        spinner.fail(chalk.red('Failed to apply boolean operation'));
+        spinner.fail(chalk.red('Processing failed'));
         const errorMessage = error instanceof Error ? error.message : String(error);
         console.error(chalk.red(errorMessage));
         process.exit(1);
