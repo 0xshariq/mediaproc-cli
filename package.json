@@ -19,7 +19,10 @@
     "clean": "rm -rf dist",
     "clean:all": "pnpm clean && pnpm --filter '@mediaproc/*' clean",
     "dev": "tsc --watch",
-    "test": "echo \"Tests not implemented yet\"",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:all": "pnpm test && pnpm --filter '@mediaproc/*' test",
     "prepublishOnly": "pnpm clean && pnpm build",
     "prepare": "pnpm build"
   },
@@ -66,7 +69,12 @@
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
+    "@jest/globals": "^30.2.0",
+    "@types/jest": "^30.0.0",
     "@types/node": "^25.0.3",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   }
 }

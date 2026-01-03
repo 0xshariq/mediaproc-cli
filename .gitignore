@@ -49,3 +49,5 @@ web/
 
 plugin-marketplace/
 input-images/
+
+__tests__/
