@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import path from 'path';
 import * as fs from 'fs';
-import { validatePaths, resolveOutputPaths, MediaExtensions } from '../utils/pathValidator.js';
+import { validatePaths, MediaExtensions } from '../utils/pathValidator.js';
 import { createSharpInstance } from '../utils/sharp.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
 
@@ -116,44 +116,10 @@ export function batchCommand(imageCmd: Command): void {
           process.exit(1);
         }
 
-        if (!fs.statSync(directory).isDirectory()) {
-          spinner.fail(chalk.red(`Path is not a directory: ${directory}`));
-          process.exit(1);
-        }
+        // Use validated files from path validator
+        const imageFiles = inputFiles;
 
         const outputDir = options.output || path.join(directory, 'output');
-        const pattern = options.pattern || '*.{jpg,jpeg,png,webp,gif,avif,tiff}';
-
-        if (options.verbose) {
-          console.log(chalk.dim(`  File pattern: ${pattern}`));
-        }
-
-        // Find all image files
-        const imageFiles: string[] = [];
-        
-        function scanDirectory(dir: string) {
-          const entries = fs.readdirSync(dir, { withFileTypes: true });
-          
-          for (const entry of entries) {
-            const fullPath = path.join(dir, entry.name);
-            
-            if (entry.isDirectory() && options.recursive) {
-              scanDirectory(fullPath);
-            } else if (entry.isFile()) {
-              const ext = path.extname(entry.name).toLowerCase();
-              if (['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif', '.tiff'].includes(ext)) {
-                imageFiles.push(fullPath);
-              }
-            }
-          }
-        }
-
-        scanDirectory(directory);
-
-        if (imageFiles.length === 0) {
-          spinner.fail(chalk.yellow('No image files found'));
-          process.exit(0);
-        }
 
         spinner.text = `Found ${imageFiles.length} images`;
 
@@ -192,7 +158,7 @@ export function batchCommand(imageCmd: Command): void {
             const relativePath = path.relative(directory, inputFile);
             const parsedPath = path.parse(relativePath);
             const outputPath = path.join(outputDir, parsedPath.dir, `${parsedPath.name}-${options.operation}${parsedPath.ext}`);
-            
+
             // Create subdirectories if needed
             const outputSubdir = path.dirname(outputPath);
             if (!fs.existsSync(outputSubdir)) {
@@ -210,35 +176,35 @@ export function batchCommand(imageCmd: Command): void {
                   pipeline = pipeline.resize(options.width, options.height, { fit: 'inside' });
                 }
                 break;
-              
+
               case 'convert':
                 if (options.format) {
                   pipeline = pipeline.toFormat(options.format as any, { quality: options.quality || 90 });
                 }
                 break;
-              
+
               case 'optimize':
-                pipeline = pipeline.toFormat(path.extname(inputFile).slice(1) as any, { 
-                  quality: options.quality || 85 
+                pipeline = pipeline.toFormat(path.extname(inputFile).slice(1) as any, {
+                  quality: options.quality || 85
                 });
                 break;
-              
+
               case 'grayscale':
                 pipeline = pipeline.grayscale();
                 break;
-              
+
               case 'blur':
                 pipeline = pipeline.blur(options.sigma || 5);
                 break;
-              
+
               case 'sharpen':
                 pipeline = pipeline.sharpen();
                 break;
-              
+
               case 'thumbnail':
                 pipeline = pipeline.resize(options.width || 200, options.height || 200, { fit: 'cover' });
                 break;
-              
+
               case 'sepia':
                 const intensity = 0.8;
                 pipeline = pipeline.recomb([
@@ -247,11 +213,11 @@ export function batchCommand(imageCmd: Command): void {
                   [0.272 * intensity, 0.534 * intensity, 0.131 * intensity + (1 - intensity)]
                 ]);
                 break;
-              
+
               case 'normalize':
                 pipeline = pipeline.normalize();
                 break;
-              
+
               default:
                 throw new Error(`Unknown operation: ${options.operation}`);
             }

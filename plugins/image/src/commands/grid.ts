@@ -2,6 +2,7 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import * as fs from 'fs';
+import path from 'path';
 import { validatePaths, MediaExtensions } from '../utils/pathValidator.js';
 import { createSharpInstance } from '../utils/sharp.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
@@ -104,29 +105,36 @@ export function gridCommand(imageCmd: Command): void {
       const spinner = ora('Creating grid...').start();
 
       try {
-        // Validate inputs
-        if (images.length === 0) {
-          spinner.fail(chalk.red('No images provided'));
+        // Validate all input files
+        const { inputFiles, outputDir, errors } = validatePaths(images.join(','), options.output, {
+          allowedExtensions: MediaExtensions.IMAGE,
+          recursive: false,
+        });
+
+        if (errors.length > 0) {
+          spinner.fail(chalk.red('Validation failed:'));
+          errors.forEach(err => console.log(chalk.red(`  ✗ ${err}`)));
           process.exit(1);
         }
 
-        // Check all files exist
-        for (const img of images) {
-          if (!fs.existsSync(img)) {
-            spinner.fail(chalk.red(`Image not found: ${img}`));
-            process.exit(1);
-          }
+        if (inputFiles.length === 0) {
+          spinner.fail(chalk.red('No valid images provided'));
+          process.exit(1);
         }
 
-        const imageCount = images.length;
-        
+        const validImages = inputFiles;
+        const imageCount = validImages.length;
+
+        // Resolve output path - grid creates a single output file
+        const outputPath = options.output || path.join(outputDir, 'grid.jpg');
+
         // Calculate grid dimensions
         let columns = options.columns;
         let rows = options.rows;
 
         if (!columns && !rows) {
           // Auto-calculate square-ish grid
-          cols = Math.ceil(Math.sqrt(validImages.length));
+          columns = Math.ceil(Math.sqrt(validImages.length));
           rows = Math.ceil(imageCount / columns);
         } else if (columns && !rows) {
           rows = Math.ceil(imageCount / columns);
@@ -141,8 +149,6 @@ export function gridCommand(imageCmd: Command): void {
 
         const gridWidth = columns! * cellWidth + (columns! - 1) * gap;
         const gridHeight = rows! * cellHeight + (rows! - 1) * gap;
-
-        const outputPath = options.output || 'grid.jpg';
 
         if (options.verbose) {
           spinner.info(chalk.blue('Configuration:'));
@@ -176,16 +182,16 @@ export function gridCommand(imageCmd: Command): void {
 
         // Process and position images
         const composites = [];
-        
+
         for (let i = 0; i < Math.min(imageCount, columns! * rows!); i++) {
           const row = Math.floor(i / columns!);
           const col = i % columns!;
-          
+
           const x = col * (cellWidth + gap);
           const y = row * (cellHeight + gap);
 
           // Resize image to fit cell
-          const processedImage = await createSharpInstance(images[i])
+          const processedImage = await createSharpInstance(validImages[i])
             .resize(cellWidth, cellHeight, {
               fit: 'cover',
               position: 'center'

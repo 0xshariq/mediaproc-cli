@@ -192,7 +192,7 @@ export function stackCommand(imageCmd: Command): void {
 
           if (direction === 'horizontal') {
             left = currentPos;
-            
+
             // Vertical alignment
             if (align === 'start') {
               top = 0;
@@ -201,11 +201,11 @@ export function stackCommand(imageCmd: Command): void {
             } else {
               top = Math.floor((canvasHeight - img.height) / 2);
             }
-            
+
             currentPos += img.width + gap;
           } else {
             top = currentPos;
-            
+
             // Horizontal alignment
             if (align === 'start') {
               left = 0;
@@ -214,12 +214,12 @@ export function stackCommand(imageCmd: Command): void {
             } else {
               left = Math.floor((canvasWidth - img.width) / 2);
             }
-            
+
             currentPos += img.height + gap;
           }
 
           const imageBuffer = await createSharpInstance(img.path).toBuffer();
-          
+
           composites.push({
             input: imageBuffer,
             left,
