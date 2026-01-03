@@ -14,6 +14,8 @@ export default {
                     noUnusedLocals: false,
                     noUnusedParameters: false,
                     rootDir: '.',
+                    module: 'ESNext',
+                    target: 'ES2022',
                 },
             },
         ],

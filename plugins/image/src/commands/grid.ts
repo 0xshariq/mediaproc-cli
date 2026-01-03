@@ -2,7 +2,6 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import * as fs from 'fs';
-import path from 'path';
 import { validatePaths, MediaExtensions } from '../utils/pathValidator.js';
 import { createSharpInstance } from '../utils/sharp.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
@@ -105,8 +104,8 @@ export function gridCommand(imageCmd: Command): void {
       const spinner = ora('Creating grid...').start();
 
       try {
-        // Validate all input files
-        const { inputFiles, outputDir, errors } = validatePaths(images.join(','), options.output, {
+        // Validate all input files (don't pass output since grid creates a single file)
+        const { inputFiles, errors } = validatePaths(images.join(','), undefined, {
           allowedExtensions: MediaExtensions.IMAGE,
           recursive: false,
         });
@@ -126,7 +125,7 @@ export function gridCommand(imageCmd: Command): void {
         const imageCount = validImages.length;
 
         // Resolve output path - grid creates a single output file
-        const outputPath = options.output || path.join(outputDir, 'grid.jpg');
+        const outputPath = options.output || 'grid.jpg';
 
         // Calculate grid dimensions
         let columns = options.columns;
