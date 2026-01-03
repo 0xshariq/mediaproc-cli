@@ -109,8 +109,6 @@ export function paletteCommand(imageCmd: Command): void {
         let successCount = 0;
         let failCount = 0;
 
-        const count = Math.max(options.count || 10, 1);
-
         // Process each file
         for (let i = 0; i < inputFiles.length; i++) {
           const inputFile = inputFiles[i];
@@ -135,7 +133,7 @@ export function paletteCommand(imageCmd: Command): void {
             console.log(chalk.dim(`   Format: ${metadata.format?.toUpperCase()}`));
             console.log('');
 
-            console.log(chalk.bold.cyan(`🎨 Dominant Color Palette (${colorCount} colors):\n`));
+            console.log(chalk.bold.cyan(`🎨 Dominant Color Palette:\n`));
 
             // Get dominant color
             if (stats.dominant) {

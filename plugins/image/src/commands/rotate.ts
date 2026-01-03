@@ -120,7 +120,11 @@ export function rotateCommand(imageCmd: Command): void {
 
             await pipeline.toFile(outputPath);
             
-            spinner.succeed(chalk.green(`✓ ${fileName} processed`));
+            if (options.verbose) {
+              spinner.succeed(chalk.green(`✓ ${fileName} processed (${metadata.width}x${metadata.height})`));
+            } else {
+              spinner.succeed(chalk.green(`✓ ${fileName} processed`));
+            }
             successCount++;
           } catch (error) {
             spinner.fail(chalk.red(`✗ Failed: ${fileName}`));

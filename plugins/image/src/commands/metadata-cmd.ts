@@ -190,7 +190,6 @@ export function metadataCommand(imageCmd: Command): void {
             console.log(chalk.bold.cyan(`\n${'='.repeat(80)}`));
             console.log(chalk.bold.green('\n✓ Processing Summary:'));
             console.log(chalk.dim(`  Processed: ${successCount}/${totalFiles}`));
-            console.log(chalk.dim(`  Output directory: ${path.dirname(outputPaths[0])}`));
             if (failCount > 0) {
               console.log(chalk.dim(`  Failed: ${failCount}`));
             }
@@ -204,8 +203,8 @@ export function metadataCommand(imageCmd: Command): void {
 
         // Export metadata mode
         if (options.export) {
-          for (let i = 0; i < validatedPaths.inputFiles.length; i++) {
-            const inputFile = validatedPaths.inputFiles[i];
+          for (let i = 0; i < inputFiles.length; i++) {
+            const inputFile = inputFiles[i];
             const fileNum = `[${i + 1}/${totalFiles}]`;
 
             if (totalFiles > 1) {
@@ -281,8 +280,8 @@ export function metadataCommand(imageCmd: Command): void {
         }
 
         // View metadata mode (default)
-        for (let i = 0; i < validatedPaths.inputFiles.length; i++) {
-          const inputFile = validatedPaths.inputFiles[i];
+        for (let i = 0; i < inputFiles.length; i++) {
+          const inputFile = inputFiles[i];
           const fileNum = `[${i + 1}/${totalFiles}]`;
 
           if (totalFiles > 1) {

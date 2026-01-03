@@ -12,8 +12,6 @@ interface RecombOptions extends ImageOptions {
     help?: boolean;
 }
 
-const spinner = ora();
-
 export function recombCommand(imageCmd: Command): void {
     imageCmd
         .command('recomb <input>')
