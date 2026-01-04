@@ -3,9 +3,10 @@
 Universal media processing CLI with an extensible plugin architecture. One tool to process all your media - images, videos, audio, documents, and more.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Version](https://img.shields.io/badge/version-0.5.2-blue.svg)](https://www.npmjs.com/package/@mediaproc/cli)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3.3-blue)](https://www.typescriptlang.org/)
-[![Status](https://img.shields.io/badge/status-alpha-orange)](https://github.com/0xshariq/mediaproc)
+[![Status](https://img.shields.io/badge/status-beta-green)](https://github.com/0xshariq/mediaproc)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 ---
@@ -127,25 +128,42 @@ mediaproc document compress input.pdf --quality high
 
 ## 📊 Current Status
 
-**Version**: 0.2.0 (Alpha - Feature Complete Image Plugin!)  
+**Version**: 0.5.2 (Beta - Production Ready!)  
 **Status**: ✅ Image plugin with 49 commands + Universal CLI commands  
 **Next Release**: Video & Audio plugins (Q1 2026)  
 **Expected v1.0**: Q2 2026
 
 ### Plugin Management
 
-- `mediaproc list` - List all plugins (built-in and installed)
-- `mediaproc add <plugin>` - Install add-on plugins from npm
-- `mediaproc remove <plugin>` - Uninstall add-on plugins
-- `mediaproc delete <plugin>` - Delete/uninstall plugins (alias: uninstall)
-- `mediaproc update [plugin]` - Update plugin(s) to latest version
-- `mediaproc plugins` - Show available plugins
+MediaProc provides comprehensive plugin lifecycle management:
+
+- `mediaproc list` - List all installed plugins with versions
+- `mediaproc add <plugin>` - Install plugins from npm registry
+- `mediaproc remove <plugin>` - Safely uninstall plugins
+- `mediaproc delete <plugin>` - Delete plugins (alias for remove)
+- `mediaproc update [plugin]` - Update plugin(s) to latest versions
+  - Without plugin name: updates all installed plugins
+  - With plugin name: updates specific plugin
+  - Shows version changes and update summary
+- `mediaproc validate [plugin]` - Validate plugin installation and integrity
+  - Check plugin structure and dependencies
+  - Verify command registrations
+  - Detect issues before execution
 
 ### Universal Commands (Work Without Plugins)
 
+Core CLI commands available immediately after installation:
+
+**Media Operations:**
 - `mediaproc convert <input> <output>` - Auto-detect and convert any media file
-- `mediaproc info <file>` - Show file information for any media type
-- `mediaproc optimize <file>` - Suggest optimization strategy based on file type
+- `mediaproc info <file>` - Display comprehensive file information
+- `mediaproc optimize <file>` - Analyze and suggest optimization strategies
+
+**Help & Configuration:**
+- `mediaproc help [command]` - Show help for commands
+- `mediaproc init` - Initialize configuration file
+- `mediaproc config` - Manage configuration settings
+- `mediaproc run <command>` - Execute plugin commands
 
 ### Image Processing (@mediaproc/image)
 
@@ -390,35 +408,25 @@ mediaproc-image resize photo.jpg -w 1920
 - `vignette` - Darken edges for artistic focus
 - `pixelate` - Retro pixel art effect (custom pixel size)
 
-**Advanced Operations** (5 commands)
+**Advanced Operations** (6 commands)
 
-- `composite` - Layer images with blend modes (overlay, multiply, screen)
-- `extract` - Extract color channels (red, green, blue, alpha)
-- `border` - Add decorative frames with custom colors
+- `composite` - Layer images with blend modes
+- `extract` - Extract color channels or regions
+- `border` - Add decorative frames
 - `clahe` - Contrast-limited adaptive histogram equalization
-- `convolve` - Apply custom convolution kernels (sharpen, emboss, edge)
+- `convolve` - Apply custom convolution kernels
+- `text` - Add text overlays with styling
 
-**Smart/AI Operations** (6 commands)
+**Utility & Metadata** (8 commands)
 
-- `smart-crop` - Intelligent content-aware cropping (attention/entropy)
-- `auto-enhance` - Automatic color and contrast enhancement
-- `palette` - Extract dominant color palettes (2-256 colors)
-- `dominant-color` - Quick dominant color extraction
-- `grid` - Combine images into collage layouts
-- `batch` - Process multiple images at once with any operation
-
-**Utility** (10 commands)
-
-- `convert` - Format conversion (JPG, PNG, WebP, AVIF, TIFF, GIF)
-- `optimize` - Size optimization (up to 70% reduction, lossless/lossy)
-- `compress` - Advanced compression with quality control
-- `watermark` - Add watermarks with positioning and opacity
-- `info` - Display detailed image metadata
-- `stats` - Technical image statistics (channels, depth, color space)
-- `split` - Split image into grid tiles
-- `stack` - Stack images horizontally/vertically
-- `mirror` - Create mirror/kaleidoscope effects
-- `metadata` - View, export, or remove EXIF data
+- `convert` - Format conversion
+- `optimize` - Smart size optimization
+- `compress` - Advanced compression control
+- `watermark` - Add watermarks with positioning
+- `info` - Display image metadata
+- `metadata` - Manage EXIF/IPTC data
+- `thumbnail` - Generate optimized thumbnails
+- `stats` - Technical image statistics
 
 **Format Support:**
 
@@ -658,38 +666,25 @@ mediaproc image resize photo.jpg -w 800
 
 ### Updating Plugins
 
-Keep your plugins up-to-date to get the latest features and bug fixes:
+Keep plugins up-to-date for latest features and bug fixes:
 
 ```bash
-# Update all installed plugins to latest versions
+# Update all installed plugins
 mediaproc update
 
-# Update a specific plugin to latest
+# Update specific plugin
 mediaproc update image
 mediaproc update video
 
-# Update to a specific version
-mediaproc update image --version 1.2.3
-mediaproc update video --version 2.0.0
+# Update with scope control
+mediaproc update --global     # Global plugins only
+mediaproc update image --local  # Local plugin only
 
-# Update with installation scope
-mediaproc update --global           # Update globally installed plugins
-mediaproc update image --local      # Update locally installed plugin
-
-# Verbose output (shows detailed information)
+# Verbose output
 mediaproc update --verbose
-mediaproc update image --verbose
 ```
 
-**Plugin Type Detection:**
-
-The update command automatically detects and handles three types of plugins:
-
-1. **Official Plugins** (`@mediaproc/*`) - ★ OFFICIAL
-   - Example: `@mediaproc/image`, `@mediaproc/video`
-   - Short name supported: `mediaproc update image`
-
-2. **Community Plugins** (`mediaproc-*`) - ◆ COMMUNITY
+See full documentation for version control and advanced options.
    - Example: `mediaproc-custom-filter`
    - Full name required: `mediaproc update mediaproc-custom-filter`
 
@@ -793,49 +788,15 @@ The delete command automatically detects and handles three types of plugins:
 **Examples:**
 
 ```bash
-# Delete official plugin
-$ mediaproc delete image
-✓ Found image ★ OFFICIAL installed locally
+# Delete a plugin
+mediaproc delete image
+mediaproc delete video --global
 
-⚠ You are about to delete:
-  Plugin: @mediaproc/image ★ OFFICIAL
-  Scope: locally
+# Skip confirmation
+mediaproc delete image --yes
 
-✓ image ★ OFFICIAL deleted successfully (locally)
-
-# Delete with confirmation skip
-$ mediaproc delete video --yes
-✓ Found video ★ OFFICIAL installed globally
-✓ video ★ OFFICIAL deleted successfully (globally)
-
-# Delete community plugin
-$ mediaproc delete mediaproc-watermark
-✓ mediaproc-watermark ◆ COMMUNITY deleted successfully (locally)
-
-# Delete with verbose output
-$ mediaproc delete image --verbose --yes
-ℹ Package manager: pnpm
-ℹ Plugin type: ★ OFFICIAL
-ℹ Package name: @mediaproc/image
-✓ Found image ★ OFFICIAL installed locally
-ℹ Running: pnpm remove @mediaproc/image
-✓ image ★ OFFICIAL deleted successfully (locally)
-
-# Plugin found in both scopes
-$ mediaproc delete image
-⚠ Plugin found in both global and local scope
-Please specify:
-  mediaproc delete image --global  # Delete globally
-  mediaproc delete image --local   # Delete locally
-```
-
-**Aliases:**
-
-You can also use `uninstall` as an alias for `delete`:
-
-```bash
+# Alias: uninstall
 mediaproc uninstall image
-mediaproc uninstall video --global
 ```
 
 **📘 Full Guide:** See [Plugin Terminology Guide](docs/plugin-terminology.md) for detailed explanations.
