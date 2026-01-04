@@ -215,24 +215,7 @@ npm install -g mediaproc-plugin-instagram
 mediaproc instagram filter photo.jpg --style vintage
 ```
 
-**2. Configuration File**
-
-Register plugins manually in `mediaproc.config.json`:
-
-```json
-{
-  "plugins": {
-    "registered": [
-      {
-        "name": "custom",
-        "package": "@mycompany/custom-processor"
-      }
-    ]
-  }
-}
-```
-
-**3. Environment Variable**
+**2. Environment Variable**
 
 ```bash
 export MEDIAPROC_PLUGINS="mediaproc-plugin-one,mediaproc-plugin-two"
@@ -243,13 +226,10 @@ mediaproc --help
 
 ```
 1. MediaProc starts
-2. Scans for installed @mediaproc/* packages (official)
-3. Scans for mediaproc-plugin-* packages (community)
-4. Reads mediaproc.config.json for manual registrations
-5. Reads MEDIAPROC_PLUGINS environment variable
-6. Dynamically imports each plugin
-7. Calls register() function for each plugin
-8. Plugin commands are now available
+2. Auto-loads installed official @mediaproc/* packages
+3. Dynamically imports each plugin
+4. Calls register() function for each plugin
+5. Plugin commands are now available
 ```
 
 ---

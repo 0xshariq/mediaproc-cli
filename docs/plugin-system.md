@@ -444,30 +444,16 @@ export type * from './types.js';
 
 #### 4. Plugin Discovery
 
-MediaProc discovers plugins in three ways:
+MediaProc discovers plugins in two ways:
 
-**A. Automatic Discovery (npm naming convention)**
+**A. Automatic Discovery (Official plugins)**
 ```bash
-# If package name matches patterns, it's auto-discovered:
-npm install -g mediaproc-plugin-yourname
-mediaproc yourplugin process input.jpg
+# Official plugins are auto-loaded when installed:
+npm install -g @mediaproc/image
+mediaproc image resize input.jpg --width 1920
 ```
 
-**B. Manual Registration in config**
-```json
-{
-  "plugins": {
-    "registered": [
-      {
-        "name": "yourplugin",
-        "package": "mediaproc-plugin-yourname"
-      }
-    ]
-  }
-}
-```
-
-**C. Environment Variable**
+**B. Environment Variable (Optional)**
 ```bash
 export MEDIAPROC_PLUGINS="mediaproc-plugin-one,mediaproc-plugin-two"
 ```

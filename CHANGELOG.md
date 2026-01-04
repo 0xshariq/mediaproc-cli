@@ -62,6 +62,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - ✅ `add` - Install plugins with auto-detection
 - ✅ `remove` - Uninstall plugins
+- ✅ `delete` - Delete/uninstall plugins with confirmation
+- ✅ `update` - Update plugins to latest or specific versions
 - ✅ `list` - List installed plugins
 - ✅ `plugins` - Show plugin catalog
 - ✅ `run` - Execute pipelines
@@ -70,7 +72,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 
 - ✅ Plugin system architecture guide
-- ✅ Configuration documentation
 - ✅ Upcoming features roadmap
 - ✅ Contributing guidelines
 - ✅ Security policy

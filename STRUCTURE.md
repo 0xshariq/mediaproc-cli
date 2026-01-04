@@ -21,10 +21,10 @@ mediaproc/
     │   │   └── commands/
     │   │       ├── add.ts       # Install plugins (with registry lookup)
     │   │       ├── remove.ts    # Uninstall plugins
+    │   │       ├── delete.ts    # Delete/uninstall plugins
+    │   │       ├── update.ts    # Update plugins
     │   │       ├── list.ts      # List installed plugins
     │   │       ├── help.ts      # Show plugin catalog
-    │   │       ├── init.ts      # Initialize project config
-    │   │       ├── config.ts    # Manage configuration
     │   │       ├── run.ts       # Run pipelines
     │   │       └── validate.ts  # Validate media files
     │   ├── bin/
