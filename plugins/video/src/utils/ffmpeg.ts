@@ -1,7 +1,7 @@
 import { spawn } from 'child_process';
-import { existsSync } from 'fs';
 import { resolve } from 'path';
 import chalk from 'chalk';
+import { fileExists } from './pathValidator.js';
 
 export interface VideoMetadata {
   duration: number;
@@ -136,7 +136,7 @@ export async function checkFFprobe(): Promise<boolean> {
  */
 export function validateInputFile(input: string): string {
   const inputPath = resolve(input);
-  if (!existsSync(inputPath)) {
+  if (!fileExists(inputPath)) {
     throw new Error(`Input file not found: ${input}`);
   }
   return inputPath;

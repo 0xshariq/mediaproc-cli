@@ -69,30 +69,34 @@ mediaproc-video transcode input.avi -f mp4
 This plugin requires **FFmpeg** to be installed on your system:
 
 ### macOS
+
 ```bash
 brew install ffmpeg
 ```
 
 ### Ubuntu/Debian
+
 ```bash
 sudo apt update
 sudo apt install ffmpeg
 ```
 
 ### Windows
+
 Download from [ffmpeg.org](https://ffmpeg.org/download.html) or use chocolatey:
+
 ```bash
 choco install ffmpeg
 ```
 
 ### Verify Installation
+
 ```bash
 ffmpeg -version
 ffprobe -version
 ```
 
-Both `ffmpeg` and `ffprobe` are required for full functionality.
----
+## Both `ffmpeg` and `ffprobe` are required for full functionality.
 
 ## 🎯 Quick Start
 
@@ -208,11 +212,13 @@ mediaproc video compress input.mp4 -q high -v
 Each command has unique options for its specific operation:
 
 **Compress:**
+
 - `--quality` (`-q`): low, medium, high (CRF-based)
 - `--codec`: h264, h265, vp9
 - `--crf`: Custom CRF value (0-51)
 
 **Transcode:**
+
 - `--format` (`-f`): mp4, webm, mkv, avi
 - `--codec`: h264, h265, vp9, av1
 - `--bitrate`: Target bitrate (e.g., 2M, 5000k)
@@ -220,21 +226,25 @@ Each command has unique options for its specific operation:
 - `--audio-bitrate`: Audio bitrate (e.g., 128k)
 
 **Trim:**
+
 - `--start`: Start time (HH:MM:SS or seconds)
 - `--end`: End time (HH:MM:SS or seconds)
 - `--duration`: Duration (HH:MM:SS or seconds)
 - `--fast`: Fast mode (stream copy)
 
 **Resize:**
+
 - `--scale`: 480p, 720p, 1080p, 1440p, 4k
 - `--width` (`-w`): Custom width in pixels
 - `--height` (`-h`): Custom height in pixels
 - `--aspect`: Maintain aspect ratio (default: true)
 
 **Merge:**
+
 - `--re-encode`: Force re-encoding
 
 **Extract:**
+
 - `extract-audio --format`: mp3, aac, wav, opus
 - `extract-audio --bitrate`: Audio bitrate
 - `extract-frames --fps`: Frames per second
@@ -264,6 +274,7 @@ mediaproc video trim --help
 ```
 
 **Help includes:**
+
 - 📝 Description and purpose
 - 🎯 Usage syntax
 - ⚙️ Available options and flags
@@ -274,6 +285,7 @@ mediaproc video trim --help
 ### Format Support
 
 **Input Formats:**
+
 - MP4 (`.mp4`)
 - AVI (`.avi`)
 - MKV (`.mkv`)
@@ -285,18 +297,21 @@ mediaproc video trim --help
 - And all formats supported by FFmpeg
 
 **Output Formats:**
+
 - **MP4** - Best for universal compatibility (H.264/H.265)
 - **WebM** - Best for web with VP9/VP8 codec
 - **MKV** - Best for high quality archival
 - **AVI** - Legacy format support
 
 **Video Codecs:**
+
 - **H.264 (libx264)** - Universal, fast encoding, good compression
 - **H.265 (libx265)** - Better compression, slower encoding
 - **VP9 (libvpx-vp9)** - Open source, WebM format
 - **AV1 (libaom-av1)** - Best compression, very slow encoding
 
 **Audio Codecs:**
+
 - **AAC** - Universal, good quality
 - **MP3** - Legacy, wide support
 - **Opus** - Best for low bitrates
@@ -331,6 +346,7 @@ mediaproc video compress input.mp4 --crf 28   # Small file
 ```
 
 **CRF Guide:**
+
 - **0-17**: Visually lossless (very large)
 - **18-23**: High quality (archival)
 - **23-28**: Good quality (distribution) ← Recommended
@@ -369,16 +385,16 @@ done
 
 ## 📋 Commands Overview
 
-| Command              | Description                         | Primary Use Case                     |
-| -------------------- | ----------------------------------- | ------------------------------------ |
-| `compress`           | Reduce video file size              | File size optimization               |
-| `transcode`          | Convert format/codec                | Format conversion, codec change      |
-| `trim`               | Cut video segments                  | Remove unwanted parts                |
-| `resize`             | Change video resolution             | Resolution scaling, aspect ratio     |
-| `merge`              | Concatenate multiple videos         | Join clips together                  |
-| `extract-audio`      | Extract audio track                 | Get audio from video                 |
-| `extract-frames`     | Extract image sequence              | Create thumbnails, analysis          |
-| `extract-thumbnail`  | Extract single frame                | Generate video thumbnail             |
+| Command             | Description                 | Primary Use Case                 |
+| ------------------- | --------------------------- | -------------------------------- |
+| `compress`          | Reduce video file size      | File size optimization           |
+| `transcode`         | Convert format/codec        | Format conversion, codec change  |
+| `trim`              | Cut video segments          | Remove unwanted parts            |
+| `resize`            | Change video resolution     | Resolution scaling, aspect ratio |
+| `merge`             | Concatenate multiple videos | Join clips together              |
+| `extract-audio`     | Extract audio track         | Get audio from video             |
+| `extract-frames`    | Extract image sequence      | Create thumbnails, analysis      |
+| `extract-thumbnail` | Extract single frame        | Generate video thumbnail         |
 
 ---
 
@@ -401,6 +417,7 @@ mediaproc video compress input.mp4 --codec h265
 ```
 
 **Quality Presets:**
+
 - `low` - CRF 28 (smaller file, lower quality)
 - `medium` - CRF 23 (balanced - default)
 - `high` - CRF 18 (larger file, better quality)
@@ -445,6 +462,7 @@ mediaproc video trim input.mp4 --start 00:00:05 --end 00:00:15 --fast
 ```
 
 **Time Formats:**
+
 - HH:MM:SS (e.g., 00:01:30)
 - Seconds (e.g., 90)
 
@@ -467,6 +485,7 @@ mediaproc video resize input.mp4 -w 1920 -h 1080 --no-aspect
 ```
 
 **Scale Presets:**
+
 - `480p` - 854x480
 - `720p` - 1280x720 (HD)
 - `1080p` - 1920x1080 (Full HD)
@@ -489,6 +508,7 @@ mediaproc video merge part1.mp4 part2.mp4 -o final.mp4
 ```
 
 **Notes:**
+
 - Videos with same format/codec use fast concat (no re-encode)
 - Mixed formats automatically re-encode for compatibility
 - Use `--re-encode` to force re-encoding
@@ -618,6 +638,7 @@ done
 ### Quality Settings (CRF)
 
 CRF (Constant Rate Factor) controls quality:
+
 - **0-17**: Visually lossless (very large files)
 - **18-23**: High quality (recommended for archival)
 - **23-28**: Good quality (recommended for distribution)
@@ -625,12 +646,12 @@ CRF (Constant Rate Factor) controls quality:
 
 ### Codec Comparison
 
-| Codec | Compression | Speed | Browser Support |
-|-------|------------|-------|----------------|
-| H.264 | Good | Fast | Excellent |
-| H.265 | Better | Slow | Modern only |
-| VP9 | Better | Slow | Good (WebM) |
-| AV1 | Best | Very Slow | Limited |
+| Codec | Compression | Speed     | Browser Support |
+| ----- | ----------- | --------- | --------------- |
+| H.264 | Good        | Fast      | Excellent       |
+| H.265 | Better      | Slow      | Modern only     |
+| VP9   | Better      | Slow      | Good (WebM)     |
+| AV1   | Best        | Very Slow | Limited         |
 
 ### Container Formats
 
@@ -670,6 +691,7 @@ pnpm test
 ## Contributing
 
 Contributions welcome! Please:
+
 1. Follow existing code style
 2. Add tests for new features
 3. Update documentation
