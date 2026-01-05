@@ -129,7 +129,7 @@ mediaproc document compress input.pdf --quality high
 ## 📊 Current Status
 
 **Version**: 0.5.2 (Beta - Production Ready!)  
-**Status**: ✅ Image plugin (49 commands) + ✅ Video plugin (6 commands) + Universal CLI  
+**Status**: ✅ Image plugin (51 commands) + ✅ Video plugin (6 commands) + Universal CLI  
 **Next Release**: Audio & Document plugins (Q1 2026)  
 **Expected v1.0**: Q2 2026
 
@@ -171,7 +171,7 @@ Core CLI commands available immediately after installation:
 
 **Install:** `mediaproc add image`
 
-**48 Professional Commands Available:**
+**51 Professional Commands Available:**
 
 **Transform & Resize** (10 commands)
 

@@ -1,6 +1,6 @@
 # 📸 MediaProc Image Plugin
 
-Professional image processing CLI powered by [Sharp](https://sharp.pixelplumbing.com/). Fast, efficient, and feature-rich image manipulation toolkit with **49 comprehensive commands**.
+Professional image processing CLI powered by [Sharp](https://sharp.pixelplumbing.com/). Fast, efficient, and feature-rich image manipulation toolkit with **51 comprehensive commands**.
 
 ## 📑 Table of Contents
 
@@ -15,7 +15,7 @@ Professional image processing CLI powered by [Sharp](https://sharp.pixelplumbing
   - [Effects & Filters](#-effects--filters-9-commands)
   - [Advanced Operations](#-advanced-operations-6-commands)
   - [Smart/AI Operations](#-smartai-operations-6-commands)
-  - [Utility Commands](#-utility-8-commands)
+  - [Utility Commands](#-utility-10-commands)
 - [Real-World Workflows](#-real-world-workflows)
 - [Usage Tips](#-usage-tips)
 - [Troubleshooting](#-troubleshooting)
@@ -25,7 +25,7 @@ Professional image processing CLI powered by [Sharp](https://sharp.pixelplumbing
 ## ✨ Features
 
 - 🚀 **High Performance** - Built on libvips for blazing fast processing
-- 🎨 **49 Commands** - Comprehensive image manipulation toolkit covering all Sharp operations
+- 🎨 **51 Commands** - Comprehensive image manipulation toolkit covering all Sharp operations
 - 🔧 **Professional Features** - Quality control, dry-run mode, verbose logging
 - 📦 **Modern Formats** - WebP, AVIF, JPEG, PNG, TIFF, GIF support
 - 🎯 **Simple CLI** - Intuitive command-line interface
@@ -368,11 +368,13 @@ All **49 commands** organized by category:
 - **grid** - Combine images into collage layouts
 - **batch** - Process multiple images at once with any operation
 
-### 🔧 Utility (8 commands)
+### 🔧 Utility (10 commands)
 
 - **convert** - Format conversion (JPG, PNG, WebP, AVIF, TIFF, GIF)
 - **optimize** - Size optimization (up to 70% reduction)
+- **compress** - Advanced compression with quality control
 - **watermark** - Add watermarks with positioning and opacity
+- **info** - Display comprehensive image information
 - **stats** - Detailed technical image statistics
 - **split** - Split image into grid tiles
 - **stack** - Stack images horizontally/vertically
