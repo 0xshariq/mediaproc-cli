@@ -6,11 +6,10 @@ import {
   runFFmpeg,
   getVideoMetadata,
   checkFFmpeg,
-  validateInputFile,
-  generateOutputPath,
   formatFileSize,
   formatDuration,
 } from '../utils/ffmpeg.js';
+import { validatePaths, resolveOutputPaths } from '../utils/pathValidator.js';
 
 export function resizeCommand(videoCmd: Command): void {
   videoCmd
@@ -34,7 +33,11 @@ export function resizeCommand(videoCmd: Command): void {
         }
 
         // Validate input
-        const inputPath = validateInputFile(input);
+        const validation = validatePaths(input, options.output);
+        if (validation.errors.length > 0) {
+          throw new Error(validation.errors.join('\n'));
+        }
+        const inputPath = validation.inputFiles[0];
 
         // Get input metadata
         console.log(chalk.dim('📊 Analyzing video...'));
@@ -88,7 +91,12 @@ export function resizeCommand(videoCmd: Command): void {
         targetHeight = Math.round(targetHeight / 2) * 2;
 
         // Generate output path
-        const output = options.output || generateOutputPath(inputPath, `${targetWidth}x${targetHeight}`, 'mp4');
+        const outputMap = resolveOutputPaths(
+          validation.inputFiles,
+          validation.outputPath,
+          { suffix: `-${targetWidth}x${targetHeight}`, newExtension: '.mp4' }
+        );
+        const output = outputMap.get(inputPath)!;
 
         // Build ffmpeg scale filter
         const scaleFilter = options.aspect ? `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2` : `scale=${targetWidth}:${targetHeight}`;

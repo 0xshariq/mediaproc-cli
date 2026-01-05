@@ -7,10 +7,10 @@ import {
   runFFmpeg,
   getVideoMetadata,
   checkFFmpeg,
-  validateInputFile,
   formatFileSize,
   formatDuration,
 } from '../utils/ffmpeg.js';
+import { validatePaths, resolveOutputPaths, fileExists } from '../utils/pathValidator.js';
 
 export function mergeCommand(videoCmd: Command): void {
   videoCmd
@@ -36,7 +36,7 @@ export function mergeCommand(videoCmd: Command): void {
           throw new Error('ffmpeg is not installed or not in PATH');
         }
 
-        // Validate all inputs and get metadata
+        // Validate all inputs
         console.log(chalk.dim('📊 Analyzing videos...\n'));
         const inputPaths: string[] = [];
         const metadataList: any[] = [];
@@ -44,7 +44,17 @@ export function mergeCommand(videoCmd: Command): void {
         let totalSize = 0;
 
         for (let i = 0; i < inputs.length; i++) {
-          const inputPath = validateInputFile(inputs[i]);
+          const validation = validatePaths(inputs[i], undefined);
+          if (validation.errors.length > 0) {
+            throw new Error(`Input ${i + 1}: ${validation.errors.join(', ')}`);
+          }
+          const inputPath = validation.inputFiles[0];
+          
+          // Check if input file exists
+          if (!(await fileExists(inputPath))) {
+            throw new Error(`Input ${i + 1} does not exist: ${inputPath}`);
+          }
+          
           inputPaths.push(inputPath);
 
           const metadata = await getVideoMetadata(inputPath);
@@ -73,7 +83,23 @@ export function mergeCommand(videoCmd: Command): void {
           console.log(chalk.dim('   Use --re-encode to skip this warning\n'));
         }
 
-        const output = options.output;
+        // Validate and resolve output path
+        const outputValidation = validatePaths(inputPaths[0], options.output, {
+          newExtension: '.mp4'
+        });
+        if (outputValidation.errors.length > 0) {
+          throw new Error(`Output path invalid: ${outputValidation.errors.join(', ')}`);
+        }
+        
+        const outputMap = resolveOutputPaths([inputPaths[0]], options.output, {
+          newExtension: '.mp4'
+        });
+        const output = outputMap.get(inputPaths[0])!;
+        
+        // Check if output file already exists
+        if (await fileExists(output) && !options.dryRun) {
+          console.log(chalk.yellow(`⚠️  Output file exists and will be overwritten: ${output}\n`));
+        }
 
         let args: string[];
 

@@ -8,6 +8,16 @@ export interface VideoOptions {
   fps?: number;
   verbose?: boolean;
   dryRun?: boolean;
+  // Resize-specific options
+  scale?: '480p' | '720p' | '1080p' | '1440p' | '4k';
+  width?: number;
+  height?: number;
+  aspect?: boolean;
+  // Trim-specific options
+  start?: string;
+  duration?: string;
+  end?: string;
+  fast?: boolean;
 }
 
 export interface CompressOptions extends VideoOptions {
@@ -16,6 +26,8 @@ export interface CompressOptions extends VideoOptions {
 
 export interface TranscodeOptions extends VideoOptions {
   format?: 'mp4' | 'webm' | 'mkv' | 'avi';
+  audioCodec?: string;
+  audioBitrate?: string;
 }
 
 export interface ExtractOptions {
@@ -25,6 +37,9 @@ export interface ExtractOptions {
   end?: string;
   format?: 'jpg' | 'png';
   fps?: number;
+  quality?: number;
+  verbose?: boolean;
+  dryRun?: boolean;
 }
 
 export interface TrimOptions {

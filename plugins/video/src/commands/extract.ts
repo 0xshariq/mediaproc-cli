@@ -1,17 +1,17 @@
 import type { Command } from 'commander';
 import chalk from 'chalk';
 import { mkdir, stat } from 'fs/promises';
-import { dirname, join, resolve } from 'path';
+import { join, resolve } from 'path';
 import type { ExtractOptions } from '../types.js';
 import {
   runFFmpeg,
   getVideoMetadata,
   checkFFmpeg,
-  validateInputFile,
   formatFileSize,
   formatDuration,
   parseTimeToSeconds,
 } from '../utils/ffmpeg.js';
+import { validatePaths, resolveOutputPaths } from '../utils/pathValidator.js';
 
 export function extractCommand(videoCmd: Command): void {
   // Extract audio
@@ -32,7 +32,11 @@ export function extractCommand(videoCmd: Command): void {
           throw new Error('ffmpeg is not installed or not in PATH');
         }
 
-        const inputPath = validateInputFile(input);
+        const validation = validatePaths(input, options.output);
+        if (validation.errors.length > 0) {
+          throw new Error(validation.errors.join('\n'));
+        }
+        const inputPath = validation.inputFiles[0];
 
         console.log(chalk.dim('📊 Analyzing video...'));
         const metadata = await getVideoMetadata(inputPath);
@@ -40,7 +44,12 @@ export function extractCommand(videoCmd: Command): void {
         console.log();
 
         const format = options.format || 'mp3';
-        const output = options.output || inputPath.replace(/\.[^.]+$/, `.${format}`);
+        const outputMap = resolveOutputPaths(
+          validation.inputFiles,
+          validation.outputPath,
+          { newExtension: `.${format}` }
+        );
+        const output = outputMap.get(inputPath)!;
 
         const codecMap: Record<string, string> = {
           mp3: 'libmp3lame',
@@ -107,7 +116,11 @@ export function extractCommand(videoCmd: Command): void {
           throw new Error('ffmpeg is not installed or not in PATH');
         }
 
-        const inputPath = validateInputFile(input);
+        const validation = validatePaths(input, options.output);
+        if (validation.errors.length > 0) {
+          throw new Error(validation.errors.join('\n'));
+        }
+        const inputPath = validation.inputFiles[0];
 
         console.log(chalk.dim('📊 Analyzing video...'));
         const metadata = await getVideoMetadata(inputPath);
@@ -116,7 +129,7 @@ export function extractCommand(videoCmd: Command): void {
         console.log(chalk.gray(`   FPS: ${metadata.fps.toFixed(2)}`));
         console.log();
 
-        const outputDir = resolve(options.output || './frames');
+        const outputDir = resolve(validation.outputPath || './frames');
         await mkdir(outputDir, { recursive: true });
 
         const format = options.format || 'jpg';
@@ -199,7 +212,11 @@ export function extractCommand(videoCmd: Command): void {
           throw new Error('ffmpeg is not installed or not in PATH');
         }
 
-        const inputPath = validateInputFile(input);
+        const validation = validatePaths(input, options.output);
+        if (validation.errors.length > 0) {
+          throw new Error(validation.errors.join('\n'));
+        }
+        const inputPath = validation.inputFiles[0];
 
         console.log(chalk.dim('📊 Analyzing video...'));
         const metadata = await getVideoMetadata(inputPath);
