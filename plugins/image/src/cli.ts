@@ -49,6 +49,8 @@ import { erodeCommand } from './commands/erode.js';
 import { booleanCommand } from './commands/boolean.js';
 import { linearCommand } from './commands/linear.js';
 import { recombCommand } from './commands/recomb.js';
+import { compressCommand } from './commands/compress.js';
+import { infoCommand } from './commands/info.js';
 
 const program = new Command();
 
@@ -107,6 +109,8 @@ erodeCommand(program);
 booleanCommand(program);
 linearCommand(program);
 recombCommand(program);
+compressCommand(program);
+infoCommand(program);
 
 program.parse(process.argv);
 

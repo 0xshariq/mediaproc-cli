@@ -48,6 +48,8 @@ import { erodeCommand } from './commands/erode.js';
 import { booleanCommand } from './commands/boolean.js';
 import { linearCommand } from './commands/linear.js';
 import { recombCommand } from './commands/recomb.js';
+import { compressCommand } from './commands/compress.js';
+import { infoCommand } from './commands/info.js';
 
 export const name = '@mediaproc/image';
 export const version = '1.0.0';
@@ -72,6 +74,7 @@ export function register(program: Command): void {
   // Format operations
   convertCommand(imageCmd);
   optimizeCommand(imageCmd);
+  compressCommand(imageCmd);
   
   // Color adjustments
   modulateCommand(imageCmd);
@@ -123,4 +126,5 @@ export function register(program: Command): void {
   
   // Information
   statsCommand(imageCmd);
+  infoCommand(imageCmd);
 }
