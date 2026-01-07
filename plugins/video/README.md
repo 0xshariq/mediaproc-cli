@@ -23,9 +23,12 @@ Professional video processing CLI powered by [FFmpeg](https://ffmpeg.org/). Fast
 - 🎬 **6 Essential Commands** - Compress, transcode, trim, resize, merge, extract
 - 🔧 **Professional Features** - Quality control, dry-run mode, verbose logging
 - 📦 **Universal Format Support** - MP4, WebM, MKV, AVI and all major codecs
+- 📁 **Folder Processing** - Process entire directories with single command
 - 🎯 **Simple CLI** - Intuitive command-line interface
 - 💡 **Helpful Documentation** - Built-in help for every command
 - ⚡ **Smart Processing** - Automatic format detection and optimization
+- 🎨 **Advanced Effects** - Fade, speed, volume, transitions, and more
+- 🔄 **Hardware Acceleration** - GPU support for faster encoding
 
 ## 📦 Installation & Usage
 
@@ -158,6 +161,29 @@ All video commands share a consistent set of common flags for unified behavior:
 mediaproc video compress video.mp4 -q high
 mediaproc video compress /path/to/video.mp4 -q high
 mediaproc video compress ../videos/video.mp4 -q high
+
+# Process entire folders (recursively finds all video files)
+mediaproc video compress videos/ -q high -o compressed/
+mediaproc video resize ./input/ -s 720p -o ./output/
+
+# Multiple files separated by commas
+mediaproc video compress video1.mp4,video2.mp4,video3.mp4 -q medium
+```
+
+**2. Folder Processing:**
+
+```bash
+# Compress all videos in a folder
+mediaproc video compress videos/ -q medium -o compressed/
+
+# Resize all videos to 1080p
+mediaproc video resize raw-footage/ -s 1080p -o processed/
+
+# Trim all videos in folder
+mediaproc video trim clips/ -s 5 -d 30 -o trimmed/
+
+# Process maintains folder structure in output
+# Input: videos/project1/clip.mp4 → Output: output/project1/clip-compressed.mp4
 ```
 
 **2. Output Naming:**
@@ -213,9 +239,21 @@ Each command has unique options for its specific operation:
 
 **Compress:**
 
-- `--quality` (`-q`): low, medium, high (CRF-based)
-- `--codec`: h264, h265, vp9
+- `--quality` (`-q`): low, medium, high, extreme (CRF-based)
+- `--codec` (`-c`): h264, h265, vp9, av1
 - `--crf`: Custom CRF value (0-51)
+- `--preset`: Encoding preset (ultrafast, fast, medium, slow, veryslow)
+- `--bitrate` (`-b`): Target bitrate (e.g., 2M, 5M)
+- `--min-bitrate`: Minimum bitrate (e.g., 1M)
+- `--max-bitrate`: Maximum bitrate (e.g., 8M)
+- `--audio-bitrate`: Audio bitrate (default: 128k)
+- `--audio-codec`: Audio codec (aac, mp3, opus)
+- `--optimize-for`: Optimize for web, streaming, archive, mobile
+- `--resize`: Also resize during compression (e.g., 720p, 1080p)
+- `--threads`: Number of encoding threads
+- `--hw-accel`: Enable hardware acceleration (GPU)
+- `--strip-metadata`: Remove all metadata from output
+- `--two-pass`: Use two-pass encoding for better quality
 
 **Transcode:**
 
@@ -227,21 +265,49 @@ Each command has unique options for its specific operation:
 
 **Trim:**
 
-- `--start`: Start time (HH:MM:SS or seconds)
-- `--end`: End time (HH:MM:SS or seconds)
-- `--duration`: Duration (HH:MM:SS or seconds)
+- `--start` (`-s`): Start time (HH:MM:SS or seconds)
+- `--end` (`-e`): End time (HH:MM:SS or seconds)
+- `--duration` (`-d`): Duration (HH:MM:SS or seconds)
 - `--fast`: Fast mode (stream copy)
+- `--accurate`: Accurate mode (re-encode for frame accuracy)
+- `--codec` (`-c`): Video codec (h264, h265, copy)
+- `--fade-in`: Add fade-in effect (seconds)
+- `--fade-out`: Add fade-out effect (seconds)
+- `--speed`: Adjust playback speed (0.5-2.0)
+- `--volume`: Adjust audio volume (0.0-2.0)
+- `--quality`: CRF quality if re-encoding (default: 23)
+- `--no-audio`: Remove audio track from output
 
 **Resize:**
 
-- `--scale`: 480p, 720p, 1080p, 1440p, 4k
-- `--width` (`-w`): Custom width in pixels
-- `--height` (`-h`): Custom height in pixels
-- `--aspect`: Maintain aspect ratio (default: true)
+- `--scale` (`-s`): 360p, 480p, 720p, 1080p, 1440p, 2160p (4K), 4320p (8K), or WxH
+- `--codec` (`-c`): h264, h265, vp9, av1
+- `--quality` (`-q`): CRF quality (0-51, lower=better, default: 23)
+- `--preset`: Encoding preset (ultrafast, fast, medium, slow, veryslow)
+- `--bitrate` (`-b`): Target bitrate (e.g., 5M, 10M)
+- `--aspect` (`-a`): Aspect ratio (16:9, 4:3, 21:9, 1:1)
+- `--fps`: Output frame rate (e.g., 24, 30, 60)
+- `--scale-algo`: Scaling algorithm (bilinear, bicubic, lanczos, spline)
+- `--deinterlace`: Deinterlace video (for interlaced sources)
+- `--rotate`: Rotate video (90, 180, 270 degrees)
+- `--flip`: Flip video (horizontal, vertical, both)
+- `--crop`: Crop video (width:height:x:y or preset)
+- `--threads`: Number of encoding threads
+- `--hw-accel`: Enable hardware acceleration (GPU)
+- `--no-audio`: Remove audio from output
+- `--two-pass`: Use two-pass encoding for better quality
 
 **Merge:**
 
 - `--re-encode`: Force re-encoding
+- `--transition`: Transition effect (fade, wipe, dissolve, none)
+- `--transition-duration`: Transition duration in seconds (default: 1)
+- `--codec` (`-c`): Video codec (h264, h265, vp9)
+- `--quality`: CRF quality if re-encoding (default: 23)
+- `--scale`: Scale all videos to same resolution (e.g., 1080p)
+- `--audio-track`: Select audio track from videos (1-based)
+- `--audio-codec`: Audio codec (aac, mp3, opus)
+- `--normalize-audio`: Normalize audio levels across videos
 
 **Extract:**
 
@@ -383,7 +449,72 @@ done
 
 ---
 
-## 📋 Commands Overview
+## � Advanced Features
+
+### Hardware Acceleration
+
+Enable GPU acceleration for significantly faster encoding:
+
+```bash
+# Use GPU for faster encoding
+mediaproc video resize input.mp4 -s 4K --hw-accel
+mediaproc video compress input.mp4 -q high --hw-accel
+```
+
+**Note:** Requires compatible GPU and drivers (NVIDIA NVENC, Intel Quick Sync, AMD VCE)
+
+### Optimization Presets
+
+Compress with specific optimization targets:
+
+```bash
+# Optimize for web delivery
+mediaproc video compress input.mp4 --optimize-for web
+
+# Optimize for streaming platforms
+mediaproc video compress input.mp4 --optimize-for streaming
+
+# Optimize for mobile devices
+mediaproc video compress input.mp4 --optimize-for mobile --resize 720p
+
+# Optimize for long-term archive
+mediaproc video compress input.mp4 --optimize-for archive -c h265
+```
+
+### Multi-Threading
+
+Control CPU usage for encoding:
+
+```bash
+# Use 8 threads for faster encoding
+mediaproc video resize input.mp4 -s 1080p --threads 8
+
+# Use all available CPU cores (default)
+mediaproc video compress input.mp4 -q high
+```
+
+### Two-Pass Encoding
+
+Better quality at target bitrate (takes twice as long):
+
+```bash
+# Two-pass encoding for optimal quality
+mediaproc video compress input.mp4 --two-pass -b 5M
+mediaproc video resize input.mp4 -s 1080p --two-pass
+```
+
+### Metadata Management
+
+```bash
+# Strip all metadata to reduce file size
+mediaproc video compress input.mp4 --strip-metadata
+
+# Metadata is preserved by default in most operations
+```
+
+---
+
+## �📋 Commands Overview
 
 | Command             | Description                 | Primary Use Case                 |
 | ------------------- | --------------------------- | -------------------------------- |
@@ -400,29 +531,51 @@ done
 
 ## 📖 Detailed Command Reference
 
+### compress
+
 Compress video files to reduce size while maintaining quality.
 
 ```bash
-# Basic compression
+# Basic compression with default medium quality
 mediaproc video compress input.mp4
 
-# High quality compression
+# High quality compression (larger file, better quality)
 mediaproc video compress input.mp4 -q high
 
-# Custom CRF value
-mediaproc video compress input.mp4 --crf 18
+# Extreme quality compression (near lossless)
+mediaproc video compress input.mp4 -q extreme
 
-# Use H.265 codec for better compression
-mediaproc video compress input.mp4 --codec h265
+# Custom CRF value for fine control
+mediaproc video compress input.mp4 --crf 20
+
+# Use H.265 codec for better compression (50% smaller)
+mediaproc video compress input.mp4 -c h265 -q high
+
+# Compress with resize for mobile
+mediaproc video compress input.mp4 --resize 720p --optimize-for mobile
+
+# Two-pass encoding for best quality
+mediaproc video compress input.mp4 -c h265 --preset slow --two-pass
+
+# Compress folder of videos
+mediaproc video compress videos/ -q medium -o compressed/
 ```
 
 **Quality Presets:**
 
-- `low` - CRF 28 (smaller file, lower quality)
-- `medium` - CRF 23 (balanced - default)
-- `high` - CRF 18 (larger file, better quality)
+- `low` - CRF 28 (~60% size reduction, noticeable quality loss)
+- `medium` - CRF 23 (~40% size reduction, minimal quality loss) - **Default**
+- `high` - CRF 20 (~30% size reduction, near-identical quality)
+- `extreme` - CRF 18 (~20% size reduction, visually lossless)
 
-**Supported Codecs:** h264, h265, vp9
+**Advanced Options:**
+
+- `--optimize-for`: Preset optimizations (web, streaming, archive, mobile)
+- `--hw-accel`: Enable GPU acceleration for faster encoding
+- `--threads`: Control CPU thread usage
+- `--strip-metadata`: Remove all metadata to save space
+
+**Supported Codecs:** h264, h265, vp9, av1
 
 ### transcode
 
@@ -448,70 +601,196 @@ mediaproc video transcode input.mp4 --bitrate 5M
 
 ### trim
 
-Cut video segments with precise timing.
+Cut video segments with precise timing and effects.
 
 ```bash
-# Trim using start and end times
-mediaproc video trim input.mp4 --start 00:00:10 --end 00:01:30
+# Trim using start and end times (HH:MM:SS format)
+mediaproc video trim input.mp4 -s 00:00:10 -e 00:01:30
 
-# Trim using duration
-mediaproc video trim input.mp4 --start 10 --duration 80
+# Trim using seconds (simpler)
+mediaproc video trim input.mp4 -s 10 -e 90
 
-# Fast mode (stream copy - less accurate but faster)
-mediaproc video trim input.mp4 --start 00:00:05 --end 00:00:15 --fast
+# Trim using duration instead of end time
+mediaproc video trim input.mp4 -s 10 -d 80
+
+# Fast mode (stream copy - very quick, may not be frame-accurate)
+mediaproc video trim input.mp4 -s 00:00:05 -e 00:00:15 --fast
+
+# Accurate mode (re-encode for perfect frame accuracy)
+mediaproc video trim input.mp4 -s 10 -d 30 --accurate
+
+# Trim with fade-in effect (3 seconds)
+mediaproc video trim input.mp4 -s 60 -d 120 --fade-in 3
+
+# Trim with fade-out effect (2 seconds)
+mediaproc video trim input.mp4 -s 30 -d 60 --fade-out 2
+
+# Trim with both fade effects
+mediaproc video trim input.mp4 -s 0 -d 120 --fade-in 2 --fade-out 3
+
+# Adjust playback speed (0.5x slow motion)
+mediaproc video trim input.mp4 -s 10 -d 30 --speed 0.5
+
+# Adjust playback speed (2x fast forward)
+mediaproc video trim input.mp4 -s 10 -d 30 --speed 2.0
+
+# Adjust audio volume (50%)
+mediaproc video trim input.mp4 -s 10 -d 30 --volume 0.5
+
+# Remove audio from clip
+mediaproc video trim input.mp4 -s 10 -d 30 --no-audio
+
+# Trim folder of videos
+mediaproc video trim videos/ -s 5 -d 30 -o clips/
 ```
 
 **Time Formats:**
 
-- HH:MM:SS (e.g., 00:01:30)
-- Seconds (e.g., 90)
+- **Seconds**: `90` (1 minute 30 seconds)
+- **MM:SS**: `01:30` (1 minute 30 seconds)
+- **HH:MM:SS**: `00:01:30` (1 minute 30 seconds)
+
+**Duration Options:**
+
+- Use `--end` for absolute end time
+- Use `--duration` for relative duration from start
+- Cannot use both `--end` and `--duration` together
+
+**Modes:**
+
+- **Default**: Stream copy (fast and accurate for most cases)
+- **Fast (`--fast`)**: Stream copy without re-encoding (very quick, may cut at nearest keyframe)
+- **Accurate (`--accurate`)**: Re-encode for perfect frame accuracy (slower but precise)
+
+**Effects:**
+
+- `--fade-in`: Add fade-in effect at the beginning
+- `--fade-out`: Add fade-out effect at the end
+- `--speed`: Adjust playback speed (0.5 = 50% slower, 2.0 = 2x faster)
+- `--volume`: Adjust audio volume (0.5 = 50%, 1.0 = 100%, 2.0 = 200%)
 
 ### resize
 
-Change video resolution with quality preservation.
+Change video resolution with quality preservation and advanced transformations.
 
 ```bash
-# Use preset scale
-mediaproc video resize input.mp4 --scale 720p
+# Use preset scale (recommended)
+mediaproc video resize input.mp4 -s 720p
 
-# Custom dimensions
-mediaproc video resize input.mp4 -w 1280 -h 720
+# Resize to 4K with high quality
+mediaproc video resize input.mp4 -s 2160p -c h265 --preset slow
 
-# Calculate height automatically
-mediaproc video resize input.mp4 -w 1920
+# Resize to 8K (4320p)
+mediaproc video resize input.mp4 -s 4320p
 
-# Don't maintain aspect ratio
-mediaproc video resize input.mp4 -w 1920 -h 1080 --no-aspect
+# Custom dimensions (WIDTHxHEIGHT)
+mediaproc video resize input.mp4 -s 1920x1080
+
+# Change aspect ratio to 16:9
+mediaproc video resize input.mp4 -s 1080p -a 16:9
+
+# Resize with custom frame rate
+mediaproc video resize input.mp4 -s 1080p --fps 60
+
+# Rotate video 90 degrees clockwise
+mediaproc video resize input.mp4 --rotate 90
+
+# Flip video horizontally
+mediaproc video resize input.mp4 --flip horizontal
+
+# Crop to 16:9 aspect ratio
+mediaproc video resize input.mp4 --crop 16:9
+
+# Deinterlace old footage
+mediaproc video resize input.mp4 -s 1080p --deinterlace
+
+# Use Lanczos scaling algorithm (best quality)
+mediaproc video resize input.mp4 -s 1080p --scale-algo lanczos
+
+# Hardware accelerated resize
+mediaproc video resize input.mp4 -s 4K --hw-accel
+
+# Resize folder of videos
+mediaproc video resize videos/ -s 1080p -o output/
 ```
 
 **Scale Presets:**
 
-- `480p` - 854x480
-- `720p` - 1280x720 (HD)
-- `1080p` - 1920x1080 (Full HD)
-- `1440p` - 2560x1440 (2K)
-- `4k` - 3840x2160 (4K UHD)
+- `360p` - 640x360 (Low quality, mobile)
+- `480p` - 854x480 (SD quality)
+- `720p` - 1280x720 (HD ready) - **Recommended for web**
+- `1080p` - 1920x1080 (Full HD) - **Recommended for distribution**
+- `1440p` - 2560x1440 (2K/QHD)
+- `2160p` - 3840x2160 (4K/UHD)
+- `4320p` - 7680x4320 (8K/UHD)
+- `WxH` - Custom (e.g., 1920x1080)
+
+**Advanced Transformations:**
+
+- `--rotate`: Rotate video (90, 180, 270 degrees)
+- `--flip`: Flip horizontally, vertically, or both
+- `--crop`: Crop video to specific dimensions or aspect ratio
+- `--deinterlace`: Remove interlacing artifacts
+- `--scale-algo`: Choose scaling algorithm (lanczos recommended)
 
 ### merge
 
-Concatenate multiple videos into one.
+Concatenate multiple videos into one with transitions and effects.
 
 ```bash
-# Merge videos (auto-detect if re-encode needed)
+# Simple merge (auto-detect if re-encode needed)
 mediaproc video merge video1.mp4 video2.mp4 video3.mp4
+
+# Merge with custom output name
+mediaproc video merge part1.mp4 part2.mp4 part3.mp4 -o complete.mp4
 
 # Force re-encoding for compatibility
 mediaproc video merge *.mp4 --re-encode
 
-# Custom output path
-mediaproc video merge part1.mp4 part2.mp4 -o final.mp4
+# Merge with fade transitions between clips
+mediaproc video merge clip1.mp4 clip2.mp4 --transition fade --transition-duration 2
+
+# Merge with specific codec and quality
+mediaproc video merge video1.mp4 video2.mp4 -c h265 --quality 20
+
+# Scale all videos to same resolution before merging
+mediaproc video merge *.mp4 --scale 1080p
+
+# Merge with normalized audio levels
+mediaproc video merge video1.mp4 video2.mp4 --normalize-audio
+
+# Select specific audio track (for multi-track videos)
+mediaproc video merge video1.mp4 video2.mp4 --audio-track 2
+
+# Merge to different format
+mediaproc video merge *.mp4 -o output.mkv --format mkv
 ```
 
-**Notes:**
+**Merge Methods:**
 
-- Videos with same format/codec use fast concat (no re-encode)
-- Mixed formats automatically re-encode for compatibility
-- Use `--re-encode` to force re-encoding
+- **Fast Concatenation**: No re-encoding, very fast, requires same codec/format/resolution
+- **Re-encoding (`--re-encode`)**: Slower but handles any format/codec combination
+- **Auto Detection**: Automatically chooses best method based on input files
+
+**Transitions:**
+
+- `none` - No transition (default)
+- `fade` - Crossfade between clips
+- `wipe` - Wipe transition
+- `dissolve` - Dissolve transition
+
+**Requirements:**
+
+- At least 2 videos required for merging
+- Videos with different resolutions can be scaled to match using `--scale`
+- Audio tracks will be merged in order
+- Videos are processed in the order specified
+
+**Advanced Options:**
+
+- `--normalize-audio`: Normalize audio levels across all videos for consistent volume
+- `--audio-track`: Select which audio track to use from multi-track videos
+- `--scale`: Resize all videos to same resolution before merging
 
 ### extract
 
@@ -567,71 +846,190 @@ All commands support these options:
 - `-v, --verbose` - Show detailed FFmpeg output
 - `--help` - Show command help
 
-## Common Use Cases
+## 🎯 Real-World Workflows
 
-### 1. Prepare Video for Web
+### Workflow 1: Social Media Content
 
-```bash
-# Compress and convert to web-friendly format
-mediaproc video transcode input.mov -f mp4 --codec h264
-mediaproc video compress output.mp4 -q medium
-```
-
-### 2. Create Social Media Clips
+Prepare videos for Instagram, TikTok, YouTube Shorts:
 
 ```bash
-# Trim to 60 seconds
-mediaproc video trim long-video.mp4 --start 00:01:00 --duration 60
+# 1. Trim to desired length (60 seconds for Instagram)
+mediaproc video trim long-video.mp4 -s 00:01:00 -d 60 -o clip.mp4
 
-# Resize to 1080p
-mediaproc video resize trimmed.mp4 --scale 1080p
+# 2. Resize to 1080x1080 (square for Instagram)
+mediaproc video resize clip.mp4 -s 1080x1080 -o square.mp4
 
-# Compress for smaller file
-mediaproc video compress resized.mp4 -q medium
+# 3. Add fade effects
+mediaproc video trim square.mp4 -s 0 -d 60 --fade-in 1 --fade-out 1 -o final.mp4
+
+# 4. Compress for upload
+mediaproc video compress final.mp4 -q high --optimize-for web
 ```
 
-### 3. Extract Highlights
+### Workflow 2: YouTube Video Production
+
+Professional YouTube video workflow:
 
 ```bash
-# Extract multiple segments
-mediaproc video trim full-game.mp4 --start 00:05:30 --end 00:06:00 -o highlight1.mp4
-mediaproc video trim full-game.mp4 --start 00:12:15 --end 00:12:45 -o highlight2.mp4
+# 1. Merge multiple clips
+mediaproc video merge intro.mp4 main.mp4 outro.mp4 --transition fade -o raw.mp4
 
-# Merge highlights
-mediaproc video merge highlight1.mp4 highlight2.mp4 -o best-moments.mp4
+# 2. Resize to 1080p if needed
+mediaproc video resize raw.mp4 -s 1080p --fps 60 -o hd.mp4
+
+# 3. Compress for upload (maintain quality)
+mediaproc video compress hd.mp4 -q extreme -c h264 --two-pass -o final.mp4
 ```
 
-### 4. Create Video Thumbnails
+### Workflow 3: Batch Process Raw Footage
+
+Process entire folders of raw footage:
 
 ```bash
-# Extract thumbnail from middle of video
-mediaproc video extract-thumbnail video.mp4 --time 00:00:30
+# 1. Convert all MOV files to MP4
+mediaproc video transcode raw-footage/ -f mp4 -o converted/
 
-# Create multiple thumbnails
-mediaproc video extract-frames video.mp4 --fps 0.1 --format jpg
+# 2. Resize all to 1080p
+mediaproc video resize converted/ -s 1080p -o resized/
+
+# 3. Compress all files
+mediaproc video compress resized/ -q high --hw-accel -o final/
 ```
 
-### 5. Batch Processing
+### Workflow 4: Create Video Highlight Reel
+
+Extract and combine best moments:
 
 ```bash
-# Compress all MP4 files
-for file in *.mp4; do
-  mediaproc video compress "$file" -o "compressed_$file"
-done
+# 1. Extract multiple highlight clips
+mediaproc video trim game.mp4 -s 300 -d 15 -o highlight1.mp4
+mediaproc video trim game.mp4 -s 850 -d 20 -o highlight2.mp4
+mediaproc video trim game.mp4 -s 1200 -d 12 -o highlight3.mp4
 
-# Convert all AVI to MP4
-for file in *.avi; do
-  mediaproc video transcode "$file" -f mp4
-done
+# 2. Add speed effects to create excitement
+mediaproc video trim highlight2.mp4 -s 0 -d 20 --speed 1.5 -o fast.mp4
+
+# 3. Merge with transitions
+mediaproc video merge highlight1.mp4 fast.mp4 highlight3.mp4 \
+  --transition fade --transition-duration 1.5 -o reel.mp4
+
+# 4. Final compress
+mediaproc video compress reel.mp4 -q extreme -o final-reel.mp4
 ```
 
-## Performance Tips
+### Workflow 5: Archive Old Videos
 
-1. **Use fast trim mode** for quick cuts without quality loss
-2. **Avoid re-encoding** when merging videos with same format
-3. **Use CRF over bitrate** for better quality/size ratio
-4. **Choose H.265** for better compression (slower encoding)
-5. **Use presets** for common resolutions to save time
+Convert and compress old videos for storage:
+
+```bash
+# 1. Deinterlace old interlaced footage
+mediaproc video resize old-video.avi -s 720p --deinterlace -o progressive.mp4
+
+# 2. Compress with H.265 for 50% space savings
+mediaproc video compress progressive.mp4 -c h265 -q high --optimize-for archive
+
+# 3. Extract thumbnail for catalog
+mediaproc video extract-thumbnail progressive-compressed.mp4 --time 5
+```
+
+### Workflow 6: Prepare Course/Training Videos
+
+Educational content optimization:
+
+```bash
+# 1. Trim intro and outro
+mediaproc video trim raw-recording.mp4 -s 10 -e 3600 -o main.mp4
+
+# 2. Resize to standard resolution
+mediaproc video resize main.mp4 -s 1080p --fps 30 -o standard.mp4
+
+# 3. Compress for web delivery
+mediaproc video compress standard.mp4 --optimize-for web -q high
+```
+
+### Workflow 7: Create Slow Motion Effects
+
+```bash
+# 1. Extract clip
+mediaproc video trim action.mp4 -s 120 -d 5 -o clip.mp4
+
+# 2. Apply 50% slow motion
+mediaproc video trim clip.mp4 -s 0 -d 5 --speed 0.5 -o slow.mp4
+
+# 3. Add fade-in and fade-out
+mediaproc video trim slow.mp4 -s 0 -e end --fade-in 0.5 --fade-out 0.5
+```
+
+---
+
+## 💡 Usage Tips
+
+### Best Practices
+
+1. **Use `--dry-run` first** - Preview operations before processing
+   ```bash
+   mediaproc video compress input.mp4 -q high --dry-run
+   ```
+
+2. **Enable hardware acceleration** - 3-5x faster encoding with GPU
+   ```bash
+   mediaproc video resize input.mp4 -s 4K --hw-accel
+   ```
+
+3. **Process folders efficiently** - Batch process entire directories
+   ```bash
+   mediaproc video compress videos/ -q medium -o output/
+   ```
+
+4. **Use CRF over bitrate** - Better quality/size ratio
+   ```bash
+   mediaproc video compress input.mp4 --crf 23  # Better than --bitrate
+   ```
+
+5. **Choose the right codec** - H.265 for 50% better compression
+   ```bash
+   mediaproc video compress input.mp4 -c h265 -q high
+   ```
+
+6. **Fast trim for quick cuts** - Use stream copy for instant trimming
+   ```bash
+   mediaproc video trim input.mp4 -s 10 -d 30 --fast
+   ```
+
+7. **Two-pass for best quality** - Worth it for final renders
+   ```bash
+   mediaproc video compress input.mp4 -q extreme --two-pass
+   ```
+
+### Performance Tips
+
+- **Fast Mode**: Use `--fast` with trim for instant cuts (no re-encoding)
+- **Presets**: Use ultrafast/fast presets for quick processing, slow/veryslow for final output
+- **Threading**: More threads = faster (but diminishing returns beyond 8)
+- **GPU Acceleration**: Enable `--hw-accel` for 3-5x speed boost (requires compatible GPU)
+- **Format Selection**: H.264 is fastest, AV1 is slowest but best compression
+
+### Quality Guidelines
+
+**For Distribution (recommended):**
+- Quality: `-q high` or `--crf 20-23`
+- Codec: h264 or h265
+- Resolution: 1080p or 1440p
+
+**For Web/Streaming:**
+- Quality: `-q medium` or `--crf 23-28`
+- Optimization: `--optimize-for web`
+- Resolution: 720p or 1080p
+
+**For Archive:**
+- Quality: `-q extreme` or `--crf 18`
+- Codec: h265 (best compression)
+- Options: `--two-pass --optimize-for archive`
+
+**For Mobile:**
+- Quality: `-q medium`
+- Resolution: 720p or lower
+- Optimization: `--optimize-for mobile`
 
 ## Technical Details
 
