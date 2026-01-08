@@ -38,12 +38,12 @@ export function mergeCommand(audioCmd: Command): void {
           ],
           options: [
             { flag: '-o, --output <path>', description: 'Output file path (default: merged.mp3)' },
-            { flag: '--format <format>', description: 'Output format: mp3, aac, wav, flac, ogg' },
-            { flag: '--bitrate <bitrate>', description: 'Output bitrate (e.g., 192k, 320k)' },
-            { flag: '--crossfade <seconds>', description: 'Crossfade duration between files' },
-            { flag: '--normalize', description: 'Normalize audio levels before merging' },
+            { flag: '--format <format>', description: 'Output format: mp3, aac, wav, flac, ogg (default: mp3)' },
+            { flag: '--bitrate <bitrate>', description: 'Output bitrate: 128k, 192k, 256k, 320k (default: 192k)' },
+            { flag: '--crossfade <seconds>', description: 'Crossfade duration between files in seconds (0-10)' },
+            { flag: '--normalize', description: 'Normalize audio levels before merging for consistent volume' },
             { flag: '--dry-run', description: 'Preview FFmpeg command without executing' },
-            { flag: '-v, --verbose', description: 'Show detailed FFmpeg output' }
+            { flag: '-v, --verbose', description: 'Show detailed FFmpeg output and progress' }
           ],
           examples: [
             { command: 'merge audio1.mp3 audio2.mp3 audio3.mp3', description: 'Merge three files' },
@@ -74,7 +74,9 @@ export function mergeCommand(audioCmd: Command): void {
         const validatedInputs: string[] = [];
         for (const input of inputs) {
           try {
-            const paths = await parseInputPaths(input, ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.opus', '.m4a']);
+            const paths = parseInputPaths(input, {
+              allowedExtensions: ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.opus', '.m4a']
+            });
             validatedInputs.push(...paths);
           } catch (err) {
             console.warn(chalk.yellow(`⚠ Skipping invalid input: ${input}`));

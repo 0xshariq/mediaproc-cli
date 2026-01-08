@@ -8,7 +8,7 @@ import {
   formatFileSize,
   formatDuration,
 } from '../utils/ffmpeg.js';
-import { parseInputPaths, resolveOutputPaths } from '../utils/pathValidator.js';
+import { parseInputPaths, resolveOutputPaths, validateOutputPath } from '../utils/pathValidator.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
 import ora from 'ora';
 
@@ -36,13 +36,13 @@ export function normalizeCommand(audioCmd: Command): void {
             'normalize audio-files/ -o output/'
           ],
           options: [
-            { flag: '-o, --output <path>', description: 'Output file/directory (default: <input>-normalized.<ext>)' },
-            { flag: '-t, --target <lufs>', description: 'Target loudness in LUFS (default: -16, range: -70 to -5)' },
-            { flag: '-l, --max-level <db>', description: 'Maximum true peak in dB (default: -1.5)' },
-            { flag: '-m, --method <method>', description: 'Method: loudnorm (EBU R128), peak' },
-            { flag: '--format <format>', description: 'Output format (default: same as input)' },
+            { flag: '-o, --output <path>', description: 'Output file/directory path (default: <input>-normalized.<ext>)' },
+            { flag: '-t, --target <lufs>', description: 'Target loudness: -16 (broadcast), -23 (streaming), -14 (podcasts)' },
+            { flag: '-l, --max-level <db>', description: 'Maximum true peak in dB to prevent clipping (default: -1.5)' },
+            { flag: '-m, --method <method>', description: 'Normalization method: loudnorm (EBU R128 standard), peak' },
+            { flag: '--format <format>', description: 'Output format: mp3, aac, wav, flac (default: same as input)' },
             { flag: '--dry-run', description: 'Preview FFmpeg command without executing' },
-            { flag: '-v, --verbose', description: 'Show detailed FFmpeg output' }
+            { flag: '-v, --verbose', description: 'Show detailed FFmpeg output and progress' }
           ],
           examples: [
             { command: 'normalize audio.mp3', description: 'Normalize to -16 LUFS (broadcast standard)' },
@@ -62,9 +62,13 @@ export function normalizeCommand(audioCmd: Command): void {
           process.exit(1);
         }
 
-        const inputPaths = await parseInputPaths(input, ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.opus', '.m4a']);
+        const inputPaths = parseInputPaths(input, {
+          allowedExtensions: ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.opus', '.m4a']
+        });
         const suffix = options.format ? `-normalized.${options.format}` : '-normalized';
-        const outputPaths = await resolveOutputPaths(inputPaths, options.output, input, suffix);
+        const outputDir = validateOutputPath(options.output);
+        const outputPathsMap = resolveOutputPaths(inputPaths, outputDir, { suffix });
+        const outputPaths = Array.from(outputPathsMap.values());
 
         for (let i = 0; i < inputPaths.length; i++) {
           const inputFile = inputPaths[i];

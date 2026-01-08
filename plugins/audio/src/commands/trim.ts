@@ -9,7 +9,7 @@ import {
   formatDuration,
   parseTime,
 } from '../utils/ffmpeg.js';
-import { parseInputPaths, resolveOutputPaths } from '../utils/pathValidator.js';
+import { parseInputPaths, resolveOutputPaths, validateOutputPath } from '../utils/pathValidator.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
 import ora from 'ora';
 
@@ -40,16 +40,16 @@ export function trimCommand(audioCmd: Command): void {
             'trim audio.mp3 --duration 60'
           ],
           options: [
-            { flag: '-o, --output <path>', description: 'Output file/directory (default: <input>-trimmed.<ext>)' },
-            { flag: '-s, --start <time>', description: 'Start time (HH:MM:SS or seconds, default: 00:00:00)' },
-            { flag: '-e, --end <time>', description: 'End time (HH:MM:SS or seconds)' },
-            { flag: '-d, --duration <time>', description: 'Duration from start (HH:MM:SS or seconds)' },
-            { flag: '--fade-in <seconds>', description: 'Add fade-in effect duration in seconds' },
-            { flag: '--fade-out <seconds>', description: 'Add fade-out effect duration in seconds' },
-            { flag: '--format <format>', description: 'Output format (default: same as input)' },
-            { flag: '--fast', description: 'Fast mode (stream copy, no re-encoding)' },
+            { flag: '-o, --output <path>', description: 'Output file/directory path (default: <input>-trimmed.<ext>)' },
+            { flag: '-s, --start <time>', description: 'Start time: HH:MM:SS format or seconds (e.g., 00:01:30 or 90)' },
+            { flag: '-e, --end <time>', description: 'End time: HH:MM:SS format or seconds' },
+            { flag: '-d, --duration <time>', description: 'Duration from start: HH:MM:SS or seconds (e.g., 00:01:00 or 60)' },
+            { flag: '--fade-in <seconds>', description: 'Fade-in effect duration in seconds (0.1-10)' },
+            { flag: '--fade-out <seconds>', description: 'Fade-out effect duration in seconds (0.1-10)' },
+            { flag: '--format <format>', description: 'Output format: mp3, aac, wav, flac (default: same as input)' },
+            { flag: '--fast', description: 'Fast mode using stream copy (no quality loss, frame-accurate)' },
             { flag: '--dry-run', description: 'Preview FFmpeg command without executing' },
-            { flag: '-v, --verbose', description: 'Show detailed FFmpeg output' }
+            { flag: '-v, --verbose', description: 'Show detailed FFmpeg output and progress' }
           ],
           examples: [
             { command: 'trim audio.mp3 --start 00:01:00 --end 00:02:00', description: 'Trim from 1:00 to 2:00' },
@@ -75,9 +75,13 @@ export function trimCommand(audioCmd: Command): void {
           process.exit(1);
         }
 
-        const inputPaths = await parseInputPaths(input, ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.opus', '.m4a']);
+        const inputPaths = parseInputPaths(input, {
+          allowedExtensions: ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.opus', '.m4a']
+        });
         const suffix = options.format ? `-trimmed.${options.format}` : '-trimmed';
-        const outputPaths = await resolveOutputPaths(inputPaths, options.output, input, suffix);
+        const outputDir = validateOutputPath(options.output);
+        const outputPathsMap = resolveOutputPaths(inputPaths, outputDir, { suffix });
+        const outputPaths = Array.from(outputPathsMap.values());
 
         for (let i = 0; i < inputPaths.length; i++) {
           const inputFile = inputPaths[i];

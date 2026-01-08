@@ -1,6 +1,6 @@
 {
   "name": "@mediaproc/video",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "description": "Video processing plugin for mediaproc - powered by FFmpeg",
   "type": "module",
   "main": "./dist/index.js",

@@ -59,6 +59,7 @@ mediaproc audio convert audio-files/ -f aac -o output/
 ```
 
 **Options:**
+
 - `-o, --output <path>` - Output file/directory
 - `-f, --format <format>` - Output format (mp3, aac, wav, flac, ogg, opus, m4a)
 - `-b, --bitrate <bitrate>` - Audio bitrate (e.g., 128k, 192k, 320k)
@@ -92,6 +93,7 @@ mediaproc audio extract videos/ -f mp3 -o audio-tracks/
 ```
 
 **Options:**
+
 - `-o, --output <path>` - Output file/directory
 - `-f, --format <format>` - Output format (mp3, aac, wav, flac, opus, ogg)
 - `-b, --bitrate <bitrate>` - Audio bitrate
@@ -126,6 +128,7 @@ mediaproc audio trim folder/ -s 10 -d 30 -o output/
 ```
 
 **Options:**
+
 - `-o, --output <path>` - Output file/directory
 - `-s, --start <time>` - Start time (HH:MM:SS or seconds)
 - `-e, --end <time>` - End time (HH:MM:SS or seconds)
@@ -158,6 +161,7 @@ mediaproc audio merge *.wav -o output.flac --format flac
 ```
 
 **Options:**
+
 - `-o, --output <path>` - Output file (default: merged.mp3)
 - `--format <format>` - Output format
 - `--bitrate <bitrate>` - Output bitrate
@@ -188,6 +192,7 @@ mediaproc audio normalize folder/ -o output/
 ```
 
 **Options:**
+
 - `-o, --output <path>` - Output file/directory
 - `-t, --target <lufs>` - Target loudness in LUFS (default: -16)
 - `-l, --max-level <db>` - Maximum true peak in dB (default: -1.5)
@@ -195,6 +200,7 @@ mediaproc audio normalize folder/ -o output/
 - `--format <format>` - Output format
 
 **LUFS Standards:**
+
 - **-16 LUFS** - Broadcast standard (TV, radio)
 - **-23 LUFS** - Streaming platforms (Spotify, YouTube)
 - **-14 LUFS** - Apple Music, Tidal
@@ -203,24 +209,24 @@ mediaproc audio normalize folder/ -o output/
 
 ## Format Support
 
-| Format | Extension | Type | Codec | Best For |
-|--------|-----------|------|-------|----------|
-| MP3 | `.mp3` | Lossy | libmp3lame | Universal compatibility |
-| AAC | `.aac`, `.m4a` | Lossy | aac | Modern devices, streaming |
-| WAV | `.wav` | Lossless | pcm_s16le | Professional editing |
-| FLAC | `.flac` | Lossless | flac | Archival, lossless quality |
-| OGG | `.ogg` | Lossy | libvorbis | Open-source projects |
-| Opus | `.opus` | Lossy | libopus | Voice, low bandwidth |
+| Format | Extension      | Type     | Codec      | Best For                   |
+| ------ | -------------- | -------- | ---------- | -------------------------- |
+| MP3    | `.mp3`         | Lossy    | libmp3lame | Universal compatibility    |
+| AAC    | `.aac`, `.m4a` | Lossy    | aac        | Modern devices, streaming  |
+| WAV    | `.wav`         | Lossless | pcm_s16le  | Professional editing       |
+| FLAC   | `.flac`        | Lossless | flac       | Archival, lossless quality |
+| OGG    | `.ogg`         | Lossy    | libvorbis  | Open-source projects       |
+| Opus   | `.opus`        | Lossy    | libopus    | Voice, low bandwidth       |
 
 ## Quality Guidelines
 
 ### Bitrate Recommendations
 
-| Quality | MP3 | AAC | Opus | Use Case |
-|---------|-----|-----|------|----------|
-| Low | 96k | 64k | 48k | Voice, podcasts |
-| Medium | 192k | 128k | 96k | General music |
-| High | 320k | 256k | 128k | High-quality distribution |
+| Quality | MP3  | AAC  | Opus | Use Case                  |
+| ------- | ---- | ---- | ---- | ------------------------- |
+| Low     | 96k  | 64k  | 48k  | Voice, podcasts           |
+| Medium  | 192k | 128k | 96k  | General music             |
+| High    | 320k | 256k | 128k | High-quality distribution |
 
 ### Sample Rates
 

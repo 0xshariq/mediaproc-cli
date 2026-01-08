@@ -56,7 +56,32 @@ const program = new Command();
 
 program
   .name('mediaproc-image')
-  .description('Image processing CLI powered by Sharp')
+  .description(`
+🌄 Image Processing Plugin v1.0.0
+
+Professional image processing powered by Sharp. Transform, optimize, and enhance images with 49+ commands.
+
+✨ Key Features:
+  • Transform & Resize (7 commands): resize, crop, rotate, flip, trim, extend, thumbnail
+  • Color & Tone (6 commands): modulate, gamma, tint, grayscale, negate, normalize
+  • Effects & Filters (9 commands): blur, sharpen, median, sepia, vignette, pixelate, threshold, dilate, erode
+  • Advanced Operations (6 commands): composite, extract, border, clahe, convolve, boolean
+  • Smart/AI Operations (6 commands): smart-crop, auto-enhance, palette, dominant-color, grid, batch
+  • Utility (10 commands): compress, convert, optimize, info, watermark, stats, split, stack, mirror, metadata
+
+📂 Format Support:
+  Input:  JPG, PNG, WebP, AVIF, TIFF, GIF, SVG, HEIF
+  Output: JPG, PNG, WebP, AVIF, TIFF, GIF
+  Modern: WebP (25-35% smaller), AVIF (50% smaller)
+
+🚀 Usage:
+  mediaproc-image <command> [options]
+  mediaproc-image resize image.jpg -w 1920
+  mediaproc-image convert image.jpg --format webp
+  mediaproc-image optimize images/ -o output/
+
+📚 Use 'mediaproc-image <command> --help' for detailed command documentation.
+  `)
   .version('1.0.0');
 
 // Register all commands directly (no "image" prefix in standalone mode)

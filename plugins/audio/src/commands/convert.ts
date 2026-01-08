@@ -7,9 +7,8 @@ import {
   checkFFmpeg,
   formatFileSize,
   formatDuration,
-  formatBitrate,
 } from '../utils/ffmpeg.js';
-import { parseInputPaths, resolveOutputPaths } from '../utils/pathValidator.js';
+import { parseInputPaths, resolveOutputPaths, validateOutputPath } from '../utils/pathValidator.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
 import ora from 'ora';
 
@@ -39,15 +38,15 @@ export function convertCommand(audioCmd: Command): void {
             'convert audio-files/ -f aac -o output/'
           ],
           options: [
-            { flag: '-o, --output <path>', description: 'Output file/directory (default: <input>-converted.<ext>)' },
-            { flag: '-f, --format <format>', description: 'Output format: mp3, aac, wav, flac, ogg, opus, m4a' },
-            { flag: '-b, --bitrate <bitrate>', description: 'Audio bitrate (e.g., 128k, 192k, 320k)' },
-            { flag: '-s, --sample-rate <rate>', description: 'Sample rate in Hz (e.g., 44100, 48000)' },
-            { flag: '-c, --channels <channels>', description: 'Number of channels: 1 (mono), 2 (stereo)' },
-            { flag: '-q, --quality <quality>', description: 'Quality preset: low, medium, high, lossless' },
-            { flag: '--codec <codec>', description: 'Audio codec override' },
+            { flag: '-o, --output <path>', description: 'Output file/directory path (default: <input>-converted.<ext>)' },
+            { flag: '-f, --format <format>', description: 'Output format: mp3, aac, wav, flac, ogg, opus, m4a (default: mp3)' },
+            { flag: '-b, --bitrate <bitrate>', description: 'Audio bitrate: 128k, 192k, 256k, 320k (default: 192k)' },
+            { flag: '-s, --sample-rate <rate>', description: 'Sample rate: 44100 (CD quality), 48000 (studio), 96000 (Hi-Res)' },
+            { flag: '-c, --channels <channels>', description: 'Audio channels: 1 (mono), 2 (stereo)' },
+            { flag: '-q, --quality <quality>', description: 'Quality preset: low (96k), medium (192k), high (320k), lossless' },
+            { flag: '--codec <codec>', description: 'Codec override: libmp3lame, aac, flac, libvorbis, libopus' },
             { flag: '--dry-run', description: 'Preview FFmpeg command without executing' },
-            { flag: '-v, --verbose', description: 'Show detailed FFmpeg output' }
+            { flag: '-v, --verbose', description: 'Show detailed FFmpeg output and progress' }
           ],
           examples: [
             { command: 'convert audio.wav -f mp3', description: 'Convert WAV to MP3' },
@@ -70,13 +69,15 @@ export function convertCommand(audioCmd: Command): void {
         }
 
         // Parse and validate input/output paths
-        const inputPaths = await parseInputPaths(input, ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.opus', '.m4a', '.wma']);
-        const outputPaths = await resolveOutputPaths(
-          inputPaths,
-          options.output,
-          input,
-          `-converted.${options.format}`
-        );
+        const inputPaths = parseInputPaths(input, { 
+          allowedExtensions: ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.opus', '.m4a', '.wma']
+        });
+        const outputDir = validateOutputPath(options.output);
+        const outputPathsMap = resolveOutputPaths(inputPaths, outputDir, {
+          suffix: '-converted',
+          newExtension: `.${options.format}`
+        });
+        const outputPaths = Array.from(outputPathsMap.values());
 
         // Quality presets
         const qualityMap: Record<string, string> = {

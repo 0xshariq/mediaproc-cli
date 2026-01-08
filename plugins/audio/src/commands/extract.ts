@@ -8,7 +8,7 @@ import {
   formatFileSize,
   formatDuration,
 } from '../utils/ffmpeg.js';
-import { parseInputPaths, resolveOutputPaths } from '../utils/pathValidator.js';
+import { parseInputPaths, resolveOutputPaths, validateOutputPath } from '../utils/pathValidator.js';
 import { createStandardHelp } from '../utils/helpFormatter.js';
 import ora from 'ora';
 
@@ -37,14 +37,14 @@ export function extractCommand(audioCmd: Command): void {
             'extract videos/ -f aac -o audio/'
           ],
           options: [
-            { flag: '-o, --output <path>', description: 'Output file/directory (default: <input>-audio.<ext>)' },
-            { flag: '-f, --format <format>', description: 'Output format: mp3, aac, wav, flac, opus, ogg' },
-            { flag: '-b, --bitrate <bitrate>', description: 'Audio bitrate (e.g., 128k, 192k, 320k)' },
-            { flag: '-q, --quality <quality>', description: 'Quality preset: low, medium, high, lossless' },
-            { flag: '--sample-rate <rate>', description: 'Sample rate in Hz (e.g., 44100, 48000)' },
-            { flag: '--channels <channels>', description: 'Number of channels: 1 (mono), 2 (stereo)' },
+            { flag: '-o, --output <path>', description: 'Output file/directory path (default: <input>-audio.<ext>)' },
+            { flag: '-f, --format <format>', description: 'Output format: mp3, aac, wav, flac, opus, ogg (default: mp3)' },
+            { flag: '-b, --bitrate <bitrate>', description: 'Audio bitrate: 128k, 192k, 256k, 320k (default: 192k)' },
+            { flag: '-q, --quality <quality>', description: 'Quality preset: low (96k), medium (192k), high (320k), lossless' },
+            { flag: '--sample-rate <rate>', description: 'Sample rate: 44100 (CD), 48000 (studio), 96000 (Hi-Res)' },
+            { flag: '--channels <channels>', description: 'Audio channels: 1 (mono), 2 (stereo)' },
             { flag: '--dry-run', description: 'Preview FFmpeg command without executing' },
-            { flag: '-v, --verbose', description: 'Show detailed FFmpeg output' }
+            { flag: '-v, --verbose', description: 'Show detailed FFmpeg output and progress' }
           ],
           examples: [
             { command: 'extract video.mp4', description: 'Extract audio as MP3' },
@@ -65,13 +65,15 @@ export function extractCommand(audioCmd: Command): void {
         }
 
         // Accept video formats
-        const inputPaths = await parseInputPaths(input, ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.flv', '.wmv', '.m4v']);
-        const outputPaths = await resolveOutputPaths(
-          inputPaths,
-          options.output,
-          input,
-          `-audio.${options.format}`
-        );
+        const inputPaths = parseInputPaths(input, {
+          allowedExtensions: ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.flv', '.wmv', '.m4v']
+        });
+        const outputDir = validateOutputPath(options.output);
+        const outputPathsMap = resolveOutputPaths(inputPaths, outputDir, {
+          suffix: '-audio',
+          newExtension: `.${options.format}`
+        });
+        const outputPaths = Array.from(outputPathsMap.values());
 
         // Quality presets
         const qualityMap: Record<string, string> = {
@@ -97,8 +99,6 @@ export function extractCommand(audioCmd: Command): void {
           } catch (err) {
             console.log(chalk.dim('Analyzing video file...'));
           }
-
-          const inputStat = await stat(inputFile);
 
           // Build FFmpeg args
           const args = ['-i', inputFile, '-y', '-vn'];  // -vn = no video
