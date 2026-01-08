@@ -41,6 +41,7 @@ export interface CommandHelpConfig {
   examples: HelpExample[];
   additionalSections?: HelpSection[];
   tips?: string[];
+  notes?: string[]
 }
 
 /**
