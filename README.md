@@ -277,7 +277,7 @@ See [Plugin Integration Guide](docs/plugin-integration-guide.md) for complete do
 
 **Current (v0.6.0-beta):**
 - ✅ Core CLI with plugin system
-- ✅ Image Plugin (49 commands)
+- ✅ Image Plugin (51 commands)
 - ✅ Video Plugin (6 commands)
 - ✅ Audio Plugin (5 commands)
 
