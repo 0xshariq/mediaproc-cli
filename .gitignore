@@ -36,24 +36,28 @@ tmp/
 temp/
 *.tmp
 
-# MediaProc specific
-mediaproc.config.json
-output/
-.mediaproc/
+# Internal Informations
 info.md
-PLUGIN_API_ANALYSIS.md
 FUTURE_IMAGE_COMMANDS.md
 WEB_DOCUMENTATION_IMPROVEMENTS.md
 
 # Website docs
 web/
+
+# Input / Output Folders for testing
+output/
 output-images/
 output-videos/
-plugin-marketplace/
 input-images/
 input-videos/
 
+# Plugin MarketPlace for future (will publish as a separate repo)
+plugin-marketplace/
+
+# Testing
 __tests__/
+
+# Output Mediaa Files
 plugins/**/*.mp4
 plugins/**/*.mov
 plugins/**/*.avi
